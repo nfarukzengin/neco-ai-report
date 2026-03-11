@@ -60,6 +60,12 @@ if st.sidebar.text_input("Giriş Şifresi:", type="password") == "fresh123":
         st.subheader("📊 Seçili Tarihler ve Kesin Toplam")
 st.dataframe(filtered_df)
 
+# Satır boyama kuralı
+def satir_boya(row):
+    if row['Tarih'] == 'TOPLAM':
+        return ['background-color: #004d40; color: white; font-weight: bold'] * len(row) # Koyu yeşil tonu
+    return [''] * len(row)
+
 st.subheader("📊 Seçili Tarihler ve Kesin Toplam")
 st.dataframe(filtered_df.style.apply(satir_boya, axis=1))
         
