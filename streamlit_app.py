@@ -22,29 +22,11 @@ if sifre == "fresh123":
             "Yeni Bağlantı": ""
         },
         "Fresh Scarfs": {
-
-
-
-            "Fresh Scarfs Reklam COS | Trendyol": "1JH3T2ib46IFuT5mnAkQoGQ1V4sZnwHaAUZA9ms1wKXo",
-
-
-
+            "Günlük Rapor": "FRESH_ID_BURAYA",
             "Aylık Özet": "FRESH_AYLIK_ID_BURAYA"
-
-
-
         },
-
-
-
         "Manuka": {
-
-
-
-            "Manuka Estimate Mart": "11BsMe68YenKhK4UDddwBeaEJgz4zJA9ZRBAxNIAIaIY",
-
-
-
+            "Manuka Estimate Mart": "MANUKA_ID_BURAYA",
             "Manuka Reklam COS | Trendyol": "1cnxOLFg3qzggWIL7gPaTrsTa63uywmISroC8lbz2V7o"
         }
     }
@@ -110,13 +92,18 @@ if sifre == "fresh123":
                 mask = (df['Tarih_Formatli'].dt.date >= start_date) & (df['Tarih_Formatli'].dt.date <= end_date)
                 filtered_df = df.loc[mask].copy()
                 
-                # --- GRAFİK ALANI EKLENDİ ---
+                # --- GRAFİK ALANI ---
                 st.subheader("📈 Trend Grafiği")
                 grafik_df = filtered_df.copy()
-                grafik_df.set_index('Tarih_Formatli', inplace=True)
+                
+                # Tarihleri Türkçeleştirme (Örn: 15 Mart)
+                aylar_tr = {1: 'Ocak', 2: 'Şubat', 3: 'Mart', 4: 'Nisan', 5: 'Mayıs', 6: 'Haziran', 
+                            7: 'Temmuz', 8: 'Ağustos', 9: 'Eylül', 10: 'Ekim', 11: 'Kasım', 12: 'Aralık'}
+                grafik_df['Grafik_Tarihi'] = grafik_df['Tarih_Formatli'].dt.day.astype(str) + ' ' + grafik_df['Tarih_Formatli'].dt.month.map(aylar_tr)
+                
+                grafik_df.set_index('Grafik_Tarihi', inplace=True)
                 sayisal_sutunlar = grafik_df.select_dtypes(include=np.number).columns.tolist()
                 
-                # Varsayılan olarak ciro ve maliyet gibi önemli metrikleri seç
                 varsayilan_secim = [col for col in sayisal_sutunlar if any(x in col.lower() for x in ['revenue', 'cost', 'ciro', 'harcama'])]
                 if not varsayilan_secim and sayisal_sutunlar:
                     varsayilan_secim = [sayisal_sutunlar[0]]
