@@ -23,15 +23,27 @@ if sifre == "fresh123":
         },
         "Fresh Scarfs": {
 
+
+
             "Fresh Scarfs Reklam COS | Trendyol": "1JH3T2ib46IFuT5mnAkQoGQ1V4sZnwHaAUZA9ms1wKXo",
+
+
 
             "Aylık Özet": "FRESH_AYLIK_ID_BURAYA"
 
+
+
         },
+
+
 
         "Manuka": {
 
+
+
             "Manuka Estimate Mart": "11BsMe68YenKhK4UDddwBeaEJgz4zJA9ZRBAxNIAIaIY",
+
+
 
             "Manuka Reklam COS | Trendyol": "1cnxOLFg3qzggWIL7gPaTrsTa63uywmISroC8lbz2V7o"
         }
@@ -69,18 +81,17 @@ if sifre == "fresh123":
             df['Tarih_Formatli'] = pd.to_datetime(df['Tarih'], format='%d.%m.%Y', errors='coerce')
             df = df.dropna(subset=['Tarih_Formatli'])
             
-            # --- KRİTİK DÜZELTME: SADECE METİNSE TEMİZLE, SAYIYSA DOKUNMA! ---
+            # --- SADECE METİNSE TEMİZLE, SAYIYSA DOKUNMA! ---
             for col in df.columns:
                 if col not in ['Tarih', 'Tarih_Formatli', 'Ürün Reklam', 'İnf Reklam', 'Cpas Reklam', 'Ürün Adı', 'Kampanya']:
                     def temizle(x):
-                        if isinstance(x, str): # Eğer hücre metinse özel karakterleri sil
+                        if isinstance(x, str):
                             x = x.replace('₺', '').replace('%', '').replace('None', '0').strip()
-                            # Türk tipi (1.234,56) formatını koda uygun (1234.56) yap
                             if '.' in x and ',' in x:
                                 x = x.replace('.', '').replace(',', '.')
                             elif ',' in x:
                                 x = x.replace(',', '.')
-                        return x # Zaten sayıysa (float/int) hiç dokunmadan geri ver
+                        return x 
                     
                     df[col] = df[col].apply(temizle)
                     df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
@@ -98,6 +109,25 @@ if sifre == "fresh123":
                     
                 mask = (df['Tarih_Formatli'].dt.date >= start_date) & (df['Tarih_Formatli'].dt.date <= end_date)
                 filtered_df = df.loc[mask].copy()
+                
+                # --- GRAFİK ALANI EKLENDİ ---
+                st.subheader("📈 Trend Grafiği")
+                grafik_df = filtered_df.copy()
+                grafik_df.set_index('Tarih_Formatli', inplace=True)
+                sayisal_sutunlar = grafik_df.select_dtypes(include=np.number).columns.tolist()
+                
+                # Varsayılan olarak ciro ve maliyet gibi önemli metrikleri seç
+                varsayilan_secim = [col for col in sayisal_sutunlar if any(x in col.lower() for x in ['revenue', 'cost', 'ciro', 'harcama'])]
+                if not varsayilan_secim and sayisal_sutunlar:
+                    varsayilan_secim = [sayisal_sutunlar[0]]
+
+                secilen_metrikler = st.multiselect("Grafikte Gösterilecek Metrikleri Seç:", sayisal_sutunlar, default=varsayilan_secim)
+                
+                if secilen_metrikler:
+                    st.line_chart(grafik_df[secilen_metrikler])
+                st.markdown("---")
+                # ----------------------------
+
                 filtered_df['Tarih'] = filtered_df['Tarih_Formatli'].dt.strftime('%d.%m.%Y')
                 filtered_df = filtered_df.drop(columns=['Tarih_Formatli'])
                 
@@ -106,27 +136,18 @@ if sifre == "fresh123":
                 toplam_satiri_df['Tarih'] = 'TOPLAM'
                 filtered_df = pd.concat([filtered_df, toplam_satiri_df], ignore_index=True)
                 
-                # --- FORMATLAMA DÜZELTİLDİ ---
                 def formatla(val, col_name):
                     if isinstance(val, (int, float)):
                         c_lower = col_name.lower()
-                        
-                        # 1. Yüzdelikler (CR, COS vb.)
                         if any(x in c_lower for x in ['cos', 'katkı', 'gelir', 'cr']) and 'cost' not in c_lower:
-                            # Excel 0.02 veriyorsa %2 yapmak için 100 ile çarpıyoruz
                             if val < 10 and val > -10: val = val * 100 
                             fmt_val = f"{val:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
                             return f"%{fmt_val}"
-                            
-                        # 2. Para Birimleri (Revenue, Cost, AOV vb.)
                         elif any(x in c_lower for x in ['revenue', 'cost', 'cpc', 'cpa', 'harcama', 'aov', 'cps', 'rps']):
                             fmt_val = f"{val:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
                             return f"₺{fmt_val}"
-                            
-                        # 3. Düz Sayılar (Session, Trx vb.) - İşaretsiz kalsın
                         else:
                             fmt_val = f"{val:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-                            # Sonu tam sayıysa (,00) gereksiz sıfırları at
                             if fmt_val.endswith(",00"): fmt_val = fmt_val[:-3]
                             return fmt_val
                     return val
@@ -145,7 +166,6 @@ if sifre == "fresh123":
                 sorular = [
                     "CPA ve COS oranlarına göre reklam verimliliğini değerlendir.",
                     "En yüksek ve en düşük ciro yapılan günleri kıyasla, sence neden?",
-                    "Bu Estimate raporda güncel olarak bütçe arttırmalı mıyım? hedef: cironun %3'ü.?",
                     "Reklam harcamalarının ciroya katkısını analiz et, kârlı mıyız?",
                     "Bu verilere göre yarınki reklam bütçesini artırmalı mıyım, kısmalı mıyım?",
                     "Sadık müşteri kazanımı (CRM) için bu tabloya göre nasıl bir aksiyon almalıyım?"
