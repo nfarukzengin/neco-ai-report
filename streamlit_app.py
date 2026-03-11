@@ -5,6 +5,7 @@ from datetime import timedelta, date
 import numpy as np
 import urllib.request
 import re
+import altair as alt
 
 st.set_page_config(page_title="Neco AI", layout="wide")
 st.title("🚀 Fresh Scarfs AI Analiz Paneli")
@@ -21,17 +22,29 @@ if sifre == "fresh123":
         "Manuel Giriş (ID Yaz)": {
             "Yeni Bağlantı": ""
         },
-       "Fresh Scarfs": {
+        "Fresh Scarfs": {
+
+
 
             "Fresh Scarfs Reklam COS | Trendyol": "1JH3T2ib46IFuT5mnAkQoGQ1V4sZnwHaAUZA9ms1wKXo",
 
+
+
             "Aylık Özet": "FRESH_AYLIK_ID_BURAYA"
+
+
 
         },
 
+
+
         "Manuka": {
 
+
+
             "Manuka Estimate Mart": "11BsMe68YenKhK4UDddwBeaEJgz4zJA9ZRBAxNIAIaIY",
+
+
 
             "Manuka Reklam COS | Trendyol": "1cnxOLFg3qzggWIL7gPaTrsTa63uywmISroC8lbz2V7o"
         }
@@ -69,7 +82,6 @@ if sifre == "fresh123":
             df['Tarih_Formatli'] = pd.to_datetime(df['Tarih'], format='%d.%m.%Y', errors='coerce')
             df = df.dropna(subset=['Tarih_Formatli'])
             
-            # --- SADECE METİNSE TEMİZLE, SAYIYSA DOKUNMA! ---
             for col in df.columns:
                 if col not in ['Tarih', 'Tarih_Formatli', 'Ürün Reklam', 'İnf Reklam', 'Cpas Reklam', 'Ürün Adı', 'Kampanya']:
                     def temizle(x):
@@ -98,25 +110,22 @@ if sifre == "fresh123":
                 mask = (df['Tarih_Formatli'].dt.date >= start_date) & (df['Tarih_Formatli'].dt.date <= end_date)
                 filtered_df = df.loc[mask].copy()
                 
-               # --- GRAFİK ALANI ---
-                import altair as alt
+                # --- GRAFİK ALANI ---
                 st.subheader("📈 Trend Grafiği")
-                
                 grafik_df = filtered_df.copy().sort_values('Tarih_Formatli')
                 sayisal_sutunlar = grafik_df.select_dtypes(include=np.number).columns.tolist()
                 varsayilan_secim = [col for col in sayisal_sutunlar if any(x in col.lower() for x in ['revenue', 'cost', 'ciro', 'harcama'])]
                 if not varsayilan_secim and sayisal_sutunlar:
                     varsayilan_secim = [sayisal_sutunlar[0]]
 
-                secilen_metrikler = st.multiselect("Grafikte Gösterilecek Metrikleri Seç:", sayisal_sutunlar, default=varsayilan_secim)
+                # Anahtar eklendi (key="grafik_metrik")
+                secilen_metrikler = st.multiselect("Grafikte Gösterilecek Metrikleri Seç:", sayisal_sutunlar, default=varsayilan_secim, key="grafik_metrik")
                 
                 if secilen_metrikler:
-                    # Tarihleri Türkçeleştir
                     aylar_tr = {1: 'Ocak', 2: 'Şubat', 3: 'Mart', 4: 'Nisan', 5: 'Mayıs', 6: 'Haziran', 
                                 7: 'Temmuz', 8: 'Ağustos', 9: 'Eylül', 10: 'Ekim', 11: 'Kasım', 12: 'Aralık'}
                     grafik_df['Grafik_Tarihi'] = grafik_df['Tarih_Formatli'].dt.day.astype(str) + ' ' + grafik_df['Tarih_Formatli'].dt.month.map(aylar_tr)
                     
-                    # Grafiği Altair ile çiziyoruz (Sıralama bozulmasın diye gizliden Tarih_Formatli'yi baz alıyor)
                     erimis_df = grafik_df.melt(id_vars=['Tarih_Formatli', 'Grafik_Tarihi'], value_vars=secilen_metrikler, var_name='Metrik', value_name='Değer')
                     
                     cizgi_grafik = alt.Chart(erimis_df).mark_line(point=True).encode(
@@ -128,43 +137,7 @@ if sifre == "fresh123":
                     
                     st.altair_chart(cizgi_grafik, use_container_width=True)
                 st.markdown("---")
-                # ----------------------------
                 
-                
-                # Sıralamanın bozulmaması için indeksi orijinal tarih formatında bırakıyoruz
-                grafik_df.set_index('Tarih_Formatli', inplace=True)
-                
-                sayisal_sutunlar = grafik_df.select_dtypes(include=np.number).columns.tolist()
-                varsayilan_secim = [col for col in sayisal_sutunlar if any(x in col.lower() for x in ['revenue', 'cost', 'ciro', 'harcama'])]
-                if not varsayilan_secim and sayisal_sutunlar:
-                    varsayilan_secim = [sayisal_sutunlar[0]]
-
-                secilen_metrikler = st.multiselect("Grafikte Gösterilecek Metrikleri Seç:", sayisal_sutunlar, default=varsayilan_secim)
-                
-                if secilen_metrikler:
-                    st.line_chart(grafik_df[secilen_metrikler])
-                st.markdown("---")
-                # ----------------------------
-                
-                # Tarihleri Türkçeleştirme (Örn: 15 Mart)
-                aylar_tr = {1: 'Ocak', 2: 'Şubat', 3: 'Mart', 4: 'Nisan', 5: 'Mayıs', 6: 'Haziran', 
-                            7: 'Temmuz', 8: 'Ağustos', 9: 'Eylül', 10: 'Ekim', 11: 'Kasım', 12: 'Aralık'}
-                grafik_df['Grafik_Tarihi'] = grafik_df['Tarih_Formatli'].dt.day.astype(str) + ' ' + grafik_df['Tarih_Formatli'].dt.month.map(aylar_tr)
-                
-                grafik_df.set_index('Grafik_Tarihi', inplace=True)
-                sayisal_sutunlar = grafik_df.select_dtypes(include=np.number).columns.tolist()
-                
-                varsayilan_secim = [col for col in sayisal_sutunlar if any(x in col.lower() for x in ['revenue', 'cost', 'ciro', 'harcama'])]
-                if not varsayilan_secim and sayisal_sutunlar:
-                    varsayilan_secim = [sayisal_sutunlar[0]]
-
-                secilen_metrikler = st.multiselect("Grafikte Gösterilecek Metrikleri Seç:", sayisal_sutunlar, default=varsayilan_secim)
-                
-                if secilen_metrikler:
-                    st.line_chart(grafik_df[secilen_metrikler])
-                st.markdown("---")
-                # ----------------------------
-
                 filtered_df['Tarih'] = filtered_df['Tarih_Formatli'].dt.strftime('%d.%m.%Y')
                 filtered_df = filtered_df.drop(columns=['Tarih_Formatli'])
                 
@@ -207,7 +180,8 @@ if sifre == "fresh123":
                     "Bu verilere göre yarınki reklam bütçesini artırmalı mıyım, kısmalı mıyım?",
                     "Sadık müşteri kazanımı (CRM) için bu tabloya göre nasıl bir aksiyon almalıyım?"
                 ]
-                secilen_sorular = st.multiselect("Soruları Seç:", sorular)
+                # Anahtar eklendi (key="ana_ai_secim")
+                secilen_sorular = st.multiselect("Soruları Seç:", sorular, key="ana_ai_secim")
                 
                 genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
                 uygun_modeller = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
@@ -291,7 +265,8 @@ if sifre == "fresh123":
                     "En çok artış ve düşüş gösteren metrikleri bulup, önümüzdeki dönem için 2 stratejik öneri ver.",
                     "Bu iki dönemi kıyasladığında reklam bütçesini nasıl optimize etmeliyim?"
                 ]
-                secilen_kiyas_sorular = st.multiselect("Soruları Seç (Karşılaştırma):", kiyas_sorular)
+                # Anahtar eklendi (key="kiyas_ai_secim")
+                secilen_kiyas_sorular = st.multiselect("Soruları Seç (Karşılaştırma):", kiyas_sorular, key="kiyas_ai_secim")
                 
                 if st.button("Karşılaştırmayı Sorgula"):
                     if not secilen_kiyas_sorular: 
