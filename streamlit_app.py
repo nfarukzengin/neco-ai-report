@@ -100,7 +100,7 @@ if sifre == "fresh123":
                 model = genai.GenerativeModel(uygun_modeller[0])
                 
                 if st.button("Sorgula"):
-                    if not secilen_sorular: st.warning("Soru seç kiral!")
+                    if not secilen_sorular: st.warning("Soruyu sor!")
                     else:
                         with st.spinner('Hazırlanıyor...'):
                             prompt = f"Şu verilere bakarak kısa cevap ver:\nSorular: {secilen_sorular}\nVeri:\n{filtered_df.to_string()}"
@@ -187,16 +187,16 @@ if sifre == "fresh123":
                 
                 if st.button("Karşılaştırmayı Sorgula"):
                     if not secilen_kiyas_sorular: 
-                        st.warning("Soru seç kiral!")
+                        st.warning("Sorunu seç!")
                     else:
-                        with st.spinner('Karşılaştırma raporu hazırlanıyor kiral...'):
+                        with st.spinner('Karşılaştırma raporu hazırlanıyor Neco...'):
                             prompt = f"Sen bir e-ticaret ve CRM uzmanısın. Şu iki dönemin karşılaştırma verilerine bakarak seçtiğim sorulara kısa, net ve aksiyon odaklı cevap ver:\n\nSorular:\n{secilen_kiyas_sorular}\n\nKarşılaştırma Verisi:\n{kiyas_df.to_string()}"
                             st.success(model.generate_content(prompt).text)
 
         except Exception as e:
-            st.error(f"Hata kiral! Belki sekme formatları farklıdır. Detay: {e}")
+            st.error(f"Hata verdik Neco! Belki sekme formatları farklıdır. Detay: {e}")
     else:
-        st.info("Kiral, verileri çekmek için lütfen menüden Google Sheet ID gir.")
+        st.info("Neco, verileri çekmek için lütfen menüden Google Sheet ID gir.")
 else:
     if sifre:
-        st.warning("Şifre yanlış kiral!")
+        st.warning("Şifre yanlış Necocum!")
