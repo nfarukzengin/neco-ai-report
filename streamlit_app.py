@@ -102,6 +102,11 @@ if sifre == "fresh123":
                 # --- GRAFİK ALANI ---
                 st.subheader("📈 Trend Grafiği")
                 grafik_df = filtered_df.copy().sort_values('Tarih_Formatli')
+
+                # Tarihleri Türkçeleştirme (Örn: 15 Mart)
+                aylar_tr = {1: 'Ocak', 2: 'Şubat', 3: 'Mart', 4: 'Nisan', 5: 'Mayıs', 6: 'Haziran', 
+                            7: 'Temmuz', 8: 'Ağustos', 9: 'Eylül', 10: 'Ekim', 11: 'Kasım', 12: 'Aralık'}
+                grafik_df['Grafik_Tarihi'] = grafik_df['Tarih_Formatli'].dt.day.astype(str) + ' ' + grafik_df['Tarih_Formatli'].dt.month.map(aylar_tr)
                 
                 # Sıralamanın bozulmaması için indeksi orijinal tarih formatında bırakıyoruz
                 grafik_df.set_index('Tarih_Formatli', inplace=True)
