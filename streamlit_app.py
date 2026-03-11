@@ -98,15 +98,38 @@ if sifre == "fresh123":
                 mask = (df['Tarih_Formatli'].dt.date >= start_date) & (df['Tarih_Formatli'].dt.date <= end_date)
                 filtered_df = df.loc[mask].copy()
                 
-                # --- GRAFİK ALANI ---
-                # --- GRAFİK ALANI ---
+               # --- GRAFİK ALANI ---
+                import altair as alt
                 st.subheader("📈 Trend Grafiği")
+                
                 grafik_df = filtered_df.copy().sort_values('Tarih_Formatli')
+                sayisal_sutunlar = grafik_df.select_dtypes(include=np.number).columns.tolist()
+                varsayilan_secim = [col for col in sayisal_sutunlar if any(x in col.lower() for x in ['revenue', 'cost', 'ciro', 'harcama'])]
+                if not varsayilan_secim and sayisal_sutunlar:
+                    varsayilan_secim = [sayisal_sutunlar[0]]
 
-                # Tarihleri Türkçeleştirme (Örn: 15 Mart)
-                aylar_tr = {1: 'Ocak', 2: 'Şubat', 3: 'Mart', 4: 'Nisan', 5: 'Mayıs', 6: 'Haziran', 
-                            7: 'Temmuz', 8: 'Ağustos', 9: 'Eylül', 10: 'Ekim', 11: 'Kasım', 12: 'Aralık'}
-                grafik_df['Grafik_Tarihi'] = grafik_df['Tarih_Formatli'].dt.day.astype(str) + ' ' + grafik_df['Tarih_Formatli'].dt.month.map(aylar_tr)
+                secilen_metrikler = st.multiselect("Grafikte Gösterilecek Metrikleri Seç:", sayisal_sutunlar, default=varsayilan_secim)
+                
+                if secilen_metrikler:
+                    # Tarihleri Türkçeleştir
+                    aylar_tr = {1: 'Ocak', 2: 'Şubat', 3: 'Mart', 4: 'Nisan', 5: 'Mayıs', 6: 'Haziran', 
+                                7: 'Temmuz', 8: 'Ağustos', 9: 'Eylül', 10: 'Ekim', 11: 'Kasım', 12: 'Aralık'}
+                    grafik_df['Grafik_Tarihi'] = grafik_df['Tarih_Formatli'].dt.day.astype(str) + ' ' + grafik_df['Tarih_Formatli'].dt.month.map(aylar_tr)
+                    
+                    # Grafiği Altair ile çiziyoruz (Sıralama bozulmasın diye gizliden Tarih_Formatli'yi baz alıyor)
+                    erimis_df = grafik_df.melt(id_vars=['Tarih_Formatli', 'Grafik_Tarihi'], value_vars=secilen_metrikler, var_name='Metrik', value_name='Değer')
+                    
+                    cizgi_grafik = alt.Chart(erimis_df).mark_line(point=True).encode(
+                        x=alt.X('Grafik_Tarihi:N', sort=alt.EncodingSortField(field='Tarih_Formatli', order='ascending'), title='Tarih'),
+                        y=alt.Y('Değer:Q', title='Tutar'),
+                        color='Metrik:N',
+                        tooltip=['Grafik_Tarihi', 'Metrik', 'Değer']
+                    ).interactive()
+                    
+                    st.altair_chart(cizgi_grafik, use_container_width=True)
+                st.markdown("---")
+                # ----------------------------
+                
                 
                 # Sıralamanın bozulmaması için indeksi orijinal tarih formatında bırakıyoruz
                 grafik_df.set_index('Tarih_Formatli', inplace=True)
