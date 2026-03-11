@@ -57,8 +57,14 @@ if st.sidebar.text_input("Giriş Şifresi:", type="password") == "fresh123":
             if col != 'Tarih':
                 filtered_df[col] = filtered_df[col].apply(lambda x: formatla(x, col))
         
-        st.subheader("📊 Seçili Tarihler ve Kesin Toplam")
-        st.dataframe(filtered_df)
+        # Satır boyama kuralı
+def satir_boya(row):
+    if row['Tarih'] == 'TOPLAM':
+        return ['background-color: #004d40; color: white; font-weight: bold'] * len(row) # Koyu yeşil tonu
+    return [''] * len(row)
+
+st.subheader("📊 Seçili Tarihler ve Kesin Toplam")
+st.dataframe(filtered_df.style.apply(satir_boya, axis=1))
         
        # 4. Hazır Sorular ve AI Bağlantısı
         st.subheader("🤖 AI'a Ne Sormak İstersin?")
