@@ -3,45 +3,72 @@ import pandas as pd
 import google.generativeai as genai
 from datetime import timedelta, date
 import numpy as np
+import urllib.request
+import re
 
 st.set_page_config(page_title="Neco AI", layout="wide")
-st.title("🚀 AI Analiz Paneli")
+st.title("🚀 Fresh Scarfs AI Analiz Paneli")
 
-# SOL MENÜ - GİRİŞ VE BAĞLANTI
+# SOL MENÜ - GİRİŞ
 st.sidebar.header("🔑 Sistem Girişi")
 sifre = st.sidebar.text_input("Giriş Şifresi:", type="password")
-sheet_id_input = st.sidebar.text_input("Google Sheet ID:")
 
 if sifre == "fresh123":
-    if sheet_id_input:
+    st.sidebar.markdown("---")
+    st.sidebar.subheader("📁 Dosya Yöneticisi")
+    
+    # KENDİ KLASÖRLERİNİ VE ID'LERİNİ BURAYA EKLE
+    klasorler = {
+        "Manuel Giriş (ID Yaz)": {
+            "Yeni Bağlantı": ""
+        },
+        "Fresh Scarfs": {
+            "Günlük Rapor": "FRESH_ID_BURAYA",
+            "Aylık Özet": "FRESH_AYLIK_ID_BURAYA"
+        },
+        "Manuka": {
+            "Manuka Estimate Mart": "MANUKA_ID_BURAYA"
+        }
+    }
+    
+    secilen_klasor = st.sidebar.selectbox("Klasör Seç:", list(klasorler.keys()))
+    secilen_dosya = st.sidebar.selectbox("Dosya Seç:", list(klasorler[secilen_klasor].keys()))
+    
+    if secilen_klasor == "Manuel Giriş (ID Yaz)":
+        sheet_id_input = st.sidebar.text_input("Google Sheet ID Girin:")
+    else:
+        sheet_id_input = klasorler[secilen_klasor][secilen_dosya]
+        
+    # Varsayılan metinleri filtrele
+    gecersiz_idler = ["", "FRESH_ID_BURAYA", "FRESH_AYLIK_ID_BURAYA", "MANUKA_ID_BURAYA"]
+
+    if sheet_id_input and sheet_id_input not in gecersiz_idler:
         url = f"https://docs.google.com/spreadsheets/d/{sheet_id_input}/export?format=xlsx"
         
         try:
-# --- DOSYA ADINI ÇEKME KODU ---
-            import urllib.request
-            import re
+            # --- DOSYA ADINI ÇEKME KODU ---
             try:
                 html = urllib.request.urlopen(f"https://docs.google.com/spreadsheets/d/{sheet_id_input}/edit").read().decode('utf-8')
                 dosya_adi = re.search(r'<title>(.*?)</title>', html).group(1).replace(" - Google Tablolar", "").replace(" - Google Sheets", "")
             except:
-                dosya_adi = "Fresh Scarfs Raporu"
+                dosya_adi = "Rapor"
             
             st.success(f"📂 Çalışılan Dosya: **{dosya_adi}**")
             # ------------------------------
-            
+
             tum_sayfalar = pd.read_excel(url, sheet_name=None)
             sayfa_isimleri = list(tum_sayfalar.keys())
             secilen_sayfa = st.sidebar.selectbox("📂 Sayfa (Sekme) Seç:", sayfa_isimleri)
             
-            df = tum_sayfalar[secilen_sayfa].copy()
+            df = tum_sayfalar[secilen_sayfa]
             
             df['Tarih_Formatli'] = pd.to_datetime(df['Tarih'], format='%d.%m.%Y', errors='coerce')
             df = df.dropna(subset=['Tarih_Formatli'])
             
             for col in df.columns:
                 if col not in ['Tarih', 'Tarih_Formatli', 'Ürün Reklam', 'İnf Reklam', 'Cpas Reklam']:
-                    df[col] = df[col].apply(lambda x: str(x).replace('₺', '').replace('.', '').replace('%', '').replace('None', '0').replace(',', '.') if isinstance(x, str) else x)
-                    df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
+                    temiz = df[col].astype(str).str.replace('₺', '', regex=False).str.replace('.', '', regex=False).str.replace('%', '', regex=False).str.replace('None', '0', regex=False).str.replace(',', '.', regex=False)
+                    df[col] = pd.to_numeric(temiz, errors='coerce').fillna(0)
 
             st.sidebar.markdown("---")
             sekme = st.sidebar.radio("📌 Menü", ["Ana Analiz", "Karşılaştırma"])
@@ -67,12 +94,9 @@ if sifre == "fresh123":
                 
                 def formatla(val, col_name):
                     if isinstance(val, (int, float)):
-                        if any(x in col_name.lower() for x in ['cos', 'katkı', 'gelir']) and 'cost' not in col_name.lower(): 
-                            fmt_val = f"{(val * 100):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-                            return f"%{fmt_val}"
-                        else: 
-                            fmt_val = f"{val:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-                            return f"₺{fmt_val}"
+                        fmt_val = f"{val:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+                        if any(x in col_name.lower() for x in ['cos', 'katkı', 'gelir']): return f"%{fmt_val}"
+                        else: return f"₺{fmt_val}"
                     return val
 
                 for col in filtered_df.columns:
@@ -100,7 +124,7 @@ if sifre == "fresh123":
                 model = genai.GenerativeModel(uygun_modeller[0])
                 
                 if st.button("Sorgula"):
-                    if not secilen_sorular: st.warning("Soruyu sor!")
+                    if not secilen_sorular: st.warning("Soru seç kiral!")
                     else:
                         with st.spinner('Hazırlanıyor...'):
                             prompt = f"Şu verilere bakarak kısa cevap ver:\nSorular: {secilen_sorular}\nVeri:\n{filtered_df.to_string()}"
@@ -171,32 +195,10 @@ if sifre == "fresh123":
                 except AttributeError:
                     st.dataframe(kiyas_df.style.applymap(renk_ver, subset=['Değişim (%)']).format({'Önceki Dönem': '{:,.2f}', 'Güncel Dönem': '{:,.2f}', 'Fark': '{:,.2f}', 'Değişim (%)': '%{:.2f}'}))
 
-                # --- KARŞILAŞTIRMA AI ALANI EKLENDİ ---
-                st.subheader("🤖 Karşılaştırma Analizi için AI'a Sor")
-                kiyas_sorular = [
-                    "Geçen döneme göre cirodaki değişimi ve karlılığı (COS/ROAS) değerlendir.",
-                    "CPA ve reklam harcamalarındaki artış/azalış ciroya nasıl yansımış? Yorumla.",
-                    "En çok artış ve düşüş gösteren metrikleri bulup, önümüzdeki dönem için 2 stratejik öneri ver.",
-                    "Bu iki dönemi kıyasladığında reklam bütçesini nasıl optimize etmeliyim?"
-                ]
-                secilen_kiyas_sorular = st.multiselect("Soruları Seç (Karşılaştırma):", kiyas_sorular)
-                
-                genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-                uygun_modeller = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
-                model = genai.GenerativeModel(uygun_modeller[0])
-                
-                if st.button("Karşılaştırmayı Sorgula"):
-                    if not secilen_kiyas_sorular: 
-                        st.warning("Sorunu seç!")
-                    else:
-                        with st.spinner('Karşılaştırma raporu hazırlanıyor Neco...'):
-                            prompt = f"Sen bir e-ticaret ve CRM uzmanısın. Şu iki dönemin karşılaştırma verilerine bakarak seçtiğim sorulara kısa, net ve aksiyon odaklı cevap ver:\n\nSorular:\n{secilen_kiyas_sorular}\n\nKarşılaştırma Verisi:\n{kiyas_df.to_string()}"
-                            st.success(model.generate_content(prompt).text)
-
         except Exception as e:
-            st.error(f"Hata verdik Neco! Belki sekme formatları farklıdır. Detay: {e}")
+            st.error(f"Hata kiral! Belki sekme formatları farklıdır. Detay: {e}")
     else:
-        st.info("Neco, verileri çekmek için lütfen menüden Google Sheet ID gir.")
+        st.info("Kiral, başlamak için lütfen klasörden bir dosya seç veya manuel ID gir.")
 else:
     if sifre:
-        st.warning("Şifre yanlış Necocum!")
+        st.warning("Şifre yanlış kiral!")
