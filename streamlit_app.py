@@ -35,9 +35,9 @@ if st.sidebar.text_input("Giriş Şifresi:", type="password") == "fresh123":
         st.subheader("📊 Seçili Tarihlerin Verisi")
         st.dataframe(filtered_df) 
         
-        # 4. AI (Gemini) Bağlantısı
+       # 4. AI (Gemini) Bağlantısı
         genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-       model = genai.GenerativeModel('gemini-pro')
+        model = genai.GenerativeModel('gemini-pro')
         
         if st.button("Seçili Tarihleri AI ile Yorumla"):
             with st.spinner('Rapor hazırlanıyor kiral...'):
