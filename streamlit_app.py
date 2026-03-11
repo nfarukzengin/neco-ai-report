@@ -1,14 +1,15 @@
 import streamlit as st
 import pandas as pd
 import google.generativeai as genai
-from datetime import timedelta
+from datetime import timedelta, date
+import numpy as np
 
 st.set_page_config(page_title="Neco AI", layout="wide")
 st.title("🚀 Fresh Scarfs AI Analiz Paneli")
 
 if st.sidebar.text_input("Giriş Şifresi:", type="password") == "fresh123":
     
-    sheet_id = "1JH3T2ib46IFuT5mnAkQoGQ1V4sZnwHaAUZA9ms1wKXo" 
+    sheet_id = "SENİN_SHEET_ID_BURAYA_GELECEK" 
     url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv"
     
     try:
@@ -16,13 +17,11 @@ if st.sidebar.text_input("Giriş Şifresi:", type="password") == "fresh123":
         df['Tarih_Formatli'] = pd.to_datetime(df['Tarih'], format='%d.%m.%Y', errors='coerce')
         df = df.dropna(subset=['Tarih_Formatli'])
         
-        # Veri temizliği (Matematik için)
         for col in df.columns:
             if col not in ['Tarih', 'Tarih_Formatli', 'Ürün Reklam', 'İnf Reklam', 'Cpas Reklam']:
                 temiz = df[col].astype(str).str.replace('₺', '', regex=False).str.replace('.', '', regex=False).str.replace('%', '', regex=False).str.replace('None', '0', regex=False).str.replace(',', '.', regex=False)
                 df[col] = pd.to_numeric(temiz, errors='coerce').fillna(0)
 
-        # SOL MENÜ (SEKMELER)
         st.sidebar.markdown("---")
         sekme = st.sidebar.radio("📌 Menü", ["Ana Analiz", "Karşılaştırma"])
 
@@ -87,55 +86,70 @@ if st.sidebar.text_input("Giriş Şifresi:", type="password") == "fresh123":
         elif sekme == "Karşılaştırma":
             st.subheader("⚖️ Dönem Karşılaştırması")
             
-            # Sistemdeki en son tarihi baz alıyoruz
-            max_date = df['Tarih_Formatli'].max().date()
+            bugun = date.today()
             
             hizli_secim = st.selectbox("Hızlı Seçim (Otomatik Önceki Dönemle Kıyaslar)", 
                                        ["Özel Tarih Seç", "Bugün", "Dün", "Son 7 Gün", "Son 15 Gün", "Son 30 Gün"])
             
             if hizli_secim == "Son 7 Gün":
-                d1_end = max_date
-                d1_start = max_date - timedelta(days=6)
+                d1_end = bugun
+                d1_start = bugun - timedelta(days=6)
                 d2_end = d1_start - timedelta(days=1)
                 d2_start = d2_end - timedelta(days=6)
             elif hizli_secim == "Son 15 Gün":
-                d1_end = max_date
-                d1_start = max_date - timedelta(days=14)
+                d1_end = bugun
+                d1_start = bugun - timedelta(days=14)
                 d2_end = d1_start - timedelta(days=1)
                 d2_start = d2_end - timedelta(days=14)
             elif hizli_secim == "Son 30 Gün":
-                d1_end = max_date
-                d1_start = max_date - timedelta(days=29)
+                d1_end = bugun
+                d1_start = bugun - timedelta(days=29)
                 d2_end = d1_start - timedelta(days=1)
                 d2_start = d2_end - timedelta(days=29)
             elif hizli_secim == "Dün":
-                d1_end = d1_start = max_date - timedelta(days=1)
-                d2_end = d2_start = max_date - timedelta(days=2)
+                d1_end = d1_start = bugun - timedelta(days=1)
+                d2_end = d2_start = bugun - timedelta(days=2)
             elif hizli_secim == "Bugün":
-                d1_end = d1_start = max_date
-                d2_end = d2_start = max_date - timedelta(days=1)
+                d1_end = d1_start = bugun
+                d2_end = d2_start = bugun - timedelta(days=1)
             else:
                 st.info("Aşağıdan özel tarihlerinizi seçin.")
-                d1_start = st.date_input("1. Dönem Başlangıç", max_date - timedelta(days=7))
-                d1_end = st.date_input("1. Dönem Bitiş", max_date)
-                d2_start = st.date_input("2. Dönem Başlangıç", max_date - timedelta(days=15))
-                d2_end = st.date_input("2. Dönem Bitiş", max_date - timedelta(days=8))
+                
+                # Tarihleri yan yana iki sütuna böldük
+                c1, c2 = st.columns(2)
+                with c1: d1_start = st.date_input("1. Dönem Başlangıç", bugun - timedelta(days=7))
+                with c2: d1_end = st.date_input("1. Dönem Bitiş", bugun)
+                
+                c3, c4 = st.columns(2)
+                with c3: d2_start = st.date_input("2. Dönem Başlangıç", bugun - timedelta(days=15))
+                with c4: d2_end = st.date_input("2. Dönem Bitiş", bugun - timedelta(days=8))
 
             st.write(f"**Güncel Dönem:** {d1_start.strftime('%d.%m.%Y')} - {d1_end.strftime('%d.%m.%Y')}")
             st.write(f"**Önceki Dönem:** {d2_start.strftime('%d.%m.%Y')} - {d2_end.strftime('%d.%m.%Y')}")
 
-            # Toplamları hesapla
             mask1 = (df['Tarih_Formatli'].dt.date >= d1_start) & (df['Tarih_Formatli'].dt.date <= d1_end)
             mask2 = (df['Tarih_Formatli'].dt.date >= d2_start) & (df['Tarih_Formatli'].dt.date <= d2_end)
             
             sum1 = df.loc[mask1].select_dtypes(include='number').sum()
             sum2 = df.loc[mask2].select_dtypes(include='number').sum()
             
-            # Kıyas tablosu oluştur
             kiyas_df = pd.DataFrame({'Metrik': sum1.index, 'Önceki Dönem': sum2.values, 'Güncel Dönem': sum1.values})
             kiyas_df['Fark'] = kiyas_df['Güncel Dönem'] - kiyas_df['Önceki Dönem']
             
-            st.dataframe(kiyas_df)
+            # Yüzdelik Değişim Hesaplama
+            kiyas_df['Değişim (%)'] = np.where(kiyas_df['Önceki Dönem'] == 0, 0, (kiyas_df['Fark'] / kiyas_df['Önceki Dönem']) * 100)
+            
+            # Renklendirme Fonksiyonu (Yeşil / Kırmızı)
+            def renk_ver(val):
+                if val > 0: return 'color: #00c853; font-weight: bold' # Yeşil
+                elif val < 0: return 'color: #d50000; font-weight: bold' # Kırmızı
+                return ''
+
+            # Versiyon uyumluluğu için try-except
+            try:
+                st.dataframe(kiyas_df.style.map(renk_ver, subset=['Değişim (%)']).format({'Önceki Dönem': '{:,.2f}', 'Güncel Dönem': '{:,.2f}', 'Fark': '{:,.2f}', 'Değişim (%)': '%{:.2f}'}))
+            except AttributeError:
+                st.dataframe(kiyas_df.style.applymap(renk_ver, subset=['Değişim (%)']).format({'Önceki Dönem': '{:,.2f}', 'Güncel Dönem': '{:,.2f}', 'Fark': '{:,.2f}', 'Değişim (%)': '%{:.2f}'}))
 
     except Exception as e:
         st.error(f"Hata kiral! Detay: {e}")
