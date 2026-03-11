@@ -37,7 +37,7 @@ if st.sidebar.text_input("Giriş Şifresi:", type="password") == "fresh123":
         
         # 4. AI (Gemini) Bağlantısı
         genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-        model = genai.GenerativeModel('gemini-1.5-flash')
+       model = genai.GenerativeModel('gemini-pro')
         
         if st.button("Seçili Tarihleri AI ile Yorumla"):
             with st.spinner('Rapor hazırlanıyor kiral...'):
