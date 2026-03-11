@@ -3,7 +3,6 @@ import pandas as pd
 import google.generativeai as genai
 from datetime import timedelta, date
 import numpy as np
-import re
 
 st.set_page_config(page_title="Neco AI", layout="wide")
 st.title("🚀 Fresh Scarfs AI Analiz Paneli")
@@ -24,76 +23,88 @@ if sifre == "fresh123":
             
             df = tum_sayfalar[secilen_sayfa].copy()
 
-            # 🛠 TARİH ARALIĞI DÜZELTİCİ (1 Ocak - 4 Ocak gibi yapıları çözer)
+            # 🛠 TARİH İŞLEME
             def tarih_temizle(x):
-                x = str(x).split('-')[0].split('–')[0].strip() # Aralıksa ilk tarihi al
+                x = str(x).split('-')[0].split('–')[0].strip()
                 return x
 
             df['Tarih_Temiz'] = df['Tarih'].apply(tarih_temizle)
-            df['Tarih_Formatli'] = pd.to_datetime(df['Tarih_Temiz'], dayfirst=True, errors='coerce')
             
-            # Eğer hâlâ NaT varsa, Türkçe ay isimlerini kontrol et (Ocak, Şubat vb.)
-            if df['Tarih_Formatli'].isna().all():
-                aylar = {"Ocak": "January", "Şubat": "February", "Mart": "March", "Nisan": "April", 
-                         "Mayıs": "May", "Haziran": "June", "Temmuz": "July", "Ağustos": "August", 
-                         "Eylül": "September", "Ekim": "October", "Kasım": "November", "Aralık": "December"}
-                for tr, en in aylar.items():
-                    df['Tarih_Temiz'] = df['Tarih_Temiz'].str.replace(tr, en, case=False)
-                df['Tarih_Formatli'] = pd.to_datetime(df['Tarih_Temiz'], errors='coerce')
-
+            # Türkçe ay desteği
+            aylar = {"Ocak": "01", "Şubat": "02", "Mart": "03", "Nisan": "04", "Mayıs": "05", "Haziran": "06", 
+                     "Temmuz": "07", "Ağustos": "08", "Eylül": "09", "Ekim": "10", "Kasım": "11", "Aralık": "12"}
+            
+            for tr, sayi in aylar.items():
+                df['Tarih_Temiz'] = df['Tarih_Temiz'].str.replace(tr, sayi, case=False)
+            
+            df['Tarih_Formatli'] = pd.to_datetime(df['Tarih_Temiz'], dayfirst=True, errors='coerce')
             df = df.dropna(subset=['Tarih_Formatli'])
 
-            # Sayısal sütun temizliği
+            # 🛠 SÜTUN TEMİZLİĞİ (METİN VE SAYI AYRIMI)
             for col in df.columns:
-                if col not in ['Tarih', 'Tarih_Formatli', 'Tarih_Temiz', 'Ürün Reklam', 'İnf Reklam', 'Cpas Reklam']:
-                    temiz = df[col].astype(str).str.replace('₺', '', regex=False).str.replace('.', '', regex=False).str.replace('%', '', regex=False).str.replace('None', '0', regex=False).str.replace(',', '.', regex=False)
-                    df[col] = pd.to_numeric(temiz, errors='coerce').fillna(0)
+                # Ürün Adı, Kampanya gibi metin kalması gerekenleri atla
+                if any(x in col.lower() for x in ['ürün', 'adı', 'kampanya', 'tarih']):
+                    df[col] = df[col].astype(str).replace('nan', '')
+                    continue
+                
+                # Diğerlerini sayıya çevir ve temizle
+                temiz = df[col].astype(str).str.replace('₺', '', regex=False).str.replace('.', '', regex=False).str.replace('%', '', regex=False).str.replace(',', '.', regex=False)
+                df[col] = pd.to_numeric(temiz, errors='coerce').fillna(0)
 
             st.sidebar.markdown("---")
             sekme = st.sidebar.radio("📌 Menü", ["Ana Analiz", "Karşılaştırma"])
 
             if df.empty:
-                st.error("Kiral bu sayfada tarih verisi bulamadım. Hücrede '1 Ocak 2026' gibi bir format olduğundan emin ol.")
+                st.error("Kiral veriler işlenemedi, formatı kontrol et.")
             else:
-                # --- ANA ANALİZ ---
                 if sekme == "Ana Analiz":
-                    min_tarih, max_tarih = df['Tarih_Formatli'].min().date(), df['Tarih_Formatli'].max().date()
+                    # TARİH FİLTRESİ
+                    min_t, max_t = df['Tarih_Formatli'].min().date(), df['Tarih_Formatli'].max().date()
                     c1, c2 = st.columns(2)
-                    with c1: start_date = st.date_input("Başlangıç", min_tarih)
-                    with c2: end_date = st.date_input("Bitiş", max_tarih)
+                    with c1: start_d = st.date_input("Başlangıç", min_t)
+                    with c2: end_d = st.date_input("Bitiş", max_t)
 
-                    mask = (df['Tarih_Formatli'].dt.date >= start_date) & (df['Tarih_Formatli'].dt.date <= end_date)
-                    filtered_df = df.loc[mask].copy()
+                    mask = (df['Tarih_Formatli'].dt.date >= start_d) & (df['Tarih_Formatli'].dt.date <= end_d)
+                    f_df = df.loc[mask].copy()
                     
-                    display_df = filtered_df.drop(columns=['Tarih_Formatli', 'Tarih_Temiz'])
-                    toplam = display_df.select_dtypes(include='number').sum()
-                    toplam['Tarih'] = 'TOPLAM'
-                    display_df = pd.concat([display_df, pd.DataFrame([toplam])], ignore_index=True)
+                    # Görüntüleme Tablosu
+                    d_df = f_df.drop(columns=['Tarih_Formatli', 'Tarih_Temiz'])
+                    
+                    # Toplam Satırı (Sadece sayısal olanlar için)
+                    numeric_cols = d_df.select_dtypes(include=[np.number]).columns
+                    toplam = d_df[numeric_cols].sum()
+                    toplam_row = {col: '' for col in d_df.columns}
+                    for col in numeric_cols: toplam_row[col] = toplam[col]
+                    toplam_row['Tarih'] = 'TOPLAM'
+                    
+                    d_df = pd.concat([d_df, pd.DataFrame([toplam_row])], ignore_index=True)
 
-                    st.dataframe(display_df.style.apply(lambda x: ['background-color: #004d40; color: white'] * len(x) if x['Tarih'] == 'TOPLAM' else [''] * len(x), axis=1))
+                    # 💎 ŞIK FORMATLAMA
+                    def format_hucre(val, col):
+                        if val == '' or val == 'nan': return ''
+                        if isinstance(val, (int, float)):
+                            if any(x in col.lower() for x in ['revenue', 'cost', 'cpc', 'cpa', 'harcama']):
+                                return f"₺{val:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+                            elif any(x in col.lower() for x in ['roas', 'ctr', 'oran']):
+                                return f"{val:,.2f}"
+                            else:
+                                return f"{int(val)}" # Transaction, Imp gibi değerler tam sayı
+                        return val
 
-                    # AI SORGUSU
-                    st.subheader("🤖 AI Raporu")
-                    if st.button("Analiz Et"):
+                    for col in d_df.columns:
+                        d_df[col] = d_df.apply(lambda row: format_hucre(row[col], col), axis=1)
+
+                    st.subheader("📊 Analiz Tablosu")
+                    st.dataframe(d_df.style.apply(lambda x: ['background-color: #004d40; color: white; font-weight: bold'] * len(x) if x['Tarih'] == 'TOPLAM' else [''] * len(x), axis=1))
+
+                    # AI KISMI
+                    st.sidebar.markdown("---")
+                    if st.sidebar.button("🤖 AI Raporu Al"):
                         genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
                         model = genai.GenerativeModel('gemini-pro')
-                        prompt = f"Şu e-ticaret verilerini yorumla, ciro ve reklam verimliliği hakkında 3 madde yaz: {filtered_df.to_string()}"
-                        st.write(model.generate_content(prompt).text)
-
-                # --- KARŞILAŞTIRMA ---
-                elif sekme == "Karşılaştırma":
-                    st.subheader("⚖️ Dönem Kıyasla")
-                    c1, c2 = st.columns(2)
-                    with c1: s1 = st.date_input("Dönem 1 Başlangıç", date.today() - timedelta(days=7))
-                    with c2: s2 = st.date_input("Dönem 2 Başlangıç", date.today() - timedelta(days=14))
-                    
-                    # Basit toplam kıyası
-                    sum1 = df[df['Tarih_Formatli'].dt.date >= s1].select_dtypes(include='number').sum()
-                    sum2 = df[df['Tarih_Formatli'].dt.date >= s2].select_dtypes(include='number').sum()
-                    
-                    kiyas = pd.DataFrame({'Metrik': sum1.index, 'Önceki': sum2.values, 'Güncel': sum1.values})
-                    kiyas['Değişim (%)'] = ((kiyas['Güncel'] - kiyas['Önceki']) / kiyas['Önceki'].replace(0, np.nan) * 100).fillna(0)
-                    st.table(kiyas)
+                        with st.spinner('Kiral analiz ediyor...'):
+                            prompt = f"Şu verileri analiz et: {f_df.drop(columns=['Tarih_Formatli','Tarih_Temiz']).to_string()}"
+                            st.info(model.generate_content(prompt).text)
 
         except Exception as e:
             st.error(f"Hata kiral! Detay: {e}")
