@@ -26,7 +26,6 @@ if sifre == "fresh123":
             df['Tarih_Formatli'] = pd.to_datetime(df['Tarih'], format='%d.%m.%Y', errors='coerce')
             df = df.dropna(subset=['Tarih_Formatli'])
             
-            # --- DÜZELTME 1: Sadece metin olanları temizle, hazır sayıları bozma ---
             for col in df.columns:
                 if col not in ['Tarih', 'Tarih_Formatli', 'Ürün Reklam', 'İnf Reklam', 'Cpas Reklam']:
                     df[col] = df[col].apply(lambda x: str(x).replace('₺', '').replace('.', '').replace('%', '').replace('None', '0').replace(',', '.') if isinstance(x, str) else x)
@@ -53,14 +52,14 @@ if sifre == "fresh123":
                 toplam_satiri_df['Tarih'] = 'TOPLAM'
                 filtered_df = pd.concat([filtered_df, toplam_satiri_df], ignore_index=True)
                 
-                # --- DÜZELTME 2: Cost kelimesini ayır ---
                 def formatla(val, col_name):
                     if isinstance(val, (int, float)):
-                        fmt_val = f"{val:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-                        # Sütun adında cos, katkı, gelir varsa VE cost YOKSA yüzde yap
+                        # Yüzdelik değerleri 100 ile çarpıp formatlıyoruz
                         if any(x in col_name.lower() for x in ['cos', 'katkı', 'gelir']) and 'cost' not in col_name.lower(): 
+                            fmt_val = f"{(val * 100):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
                             return f"%{fmt_val}"
                         else: 
+                            fmt_val = f"{val:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
                             return f"₺{fmt_val}"
                     return val
 
