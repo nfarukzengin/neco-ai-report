@@ -27,7 +27,7 @@ if sifre == "fresh123":
             "Aylık Özet": "FRESH_AYLIK_ID_BURAYA"
         },
         "Manuka": {
-            "Manuka Estimate Mart": "11BsMe68YenKhK4UDddwBeaEJgz4zJA9ZRBAxNIAIaIY"
+            "Manuka Estimate Mart": "11BsMe68YenKhK4UDddwBeaEJgz4zJA9ZRBAxNIAIaIY",
             "Manuka Reklam COS | Trendyol": "1cnxOLFg3qzggWIL7gPaTrsTa63uywmISroC8lbz2V7o"
         }
     }
