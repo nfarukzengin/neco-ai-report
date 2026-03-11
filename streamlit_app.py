@@ -29,19 +29,33 @@ if st.sidebar.text_input("Giriş Şifresi:", type="password") == "fresh123":
         mask = (df['Tarih'].dt.date >= start_date) & (df['Tarih'].dt.date <= end_date)
         filtered_df = df.loc[mask].copy()
         
-        # Para birimlerini ve None'ları sayıya çevir (Matematik için)
+        # Tüm sütunları (Tarih hariç) temizleyip sayıya çeviriyoruz (None'lar 0 oluyor)
         for col in filtered_df.columns:
-            if col not in ['Tarih', 'Ürün Reklam', 'İnf Reklam', 'Cpas Reklam']: # Metin sütunlarını atla
-                filtered_df[col] = filtered_df[col].astype(str).str.replace('₺', '').str.replace('.', '').str.replace('None', '0').str.replace(',', '.')
-                filtered_df[col] = pd.to_numeric(filtered_df[col], errors='coerce').fillna(0)
+            if col != 'Tarih':
+                temiz = filtered_df[col].astype(str).str.replace('₺', '', regex=False).str.replace('.', '', regex=False).str.replace('%', '', regex=False).str.replace('None', '0', regex=False).str.replace(',', '.', regex=False)
+                filtered_df[col] = pd.to_numeric(temiz, errors='coerce').fillna(0)
         
-        # Tarih formatını ekranda düzgün göstermek için ayarla
         filtered_df['Tarih'] = filtered_df['Tarih'].dt.strftime('%d.%m.%Y')
         
         # Gerçek matematiği yap ve en alta 'TOPLAM' satırı olarak ekle
         toplam_satiri = filtered_df.select_dtypes(include='number').sum()
-        toplam_satiri['Tarih'] = 'TOPLAM'
-        filtered_df = pd.concat([filtered_df, pd.DataFrame([toplam_satiri])], ignore_index=True)
+        toplam_satiri_df = pd.DataFrame([toplam_satiri])
+        toplam_satiri_df['Tarih'] = 'TOPLAM'
+        filtered_df = pd.concat([filtered_df, toplam_satiri_df], ignore_index=True)
+        
+        # Makyaj: Sayıları şık formata çevir (₺1.234,56 veya %2,42)
+        def formatla(val, col_name):
+            if isinstance(val, (int, float)):
+                fmt_val = f"{val:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+                if any(x in col_name.lower() for x in ['cos', 'katkı', 'gelir']): # Yüzdelik olanlar
+                    return f"%{fmt_val}"
+                else:
+                    return f"₺{fmt_val}"
+            return val
+
+        for col in filtered_df.columns:
+            if col != 'Tarih':
+                filtered_df[col] = filtered_df[col].apply(lambda x: formatla(x, col))
         
         st.subheader("📊 Seçili Tarihler ve Kesin Toplam")
         st.dataframe(filtered_df)
