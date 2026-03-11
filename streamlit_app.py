@@ -5,7 +5,7 @@ from datetime import timedelta, date
 import numpy as np
 
 st.set_page_config(page_title="Neco AI", layout="wide")
-st.title("🚀 Fresh Scarfs AI Analiz Paneli")
+st.title("🚀 AI Analiz Paneli")
 
 # SOL MENÜ - GİRİŞ VE BAĞLANTI
 st.sidebar.header("🔑 Sistem Girişi")
