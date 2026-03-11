@@ -7,7 +7,7 @@ st.title("🚀 Fresh Scarfs AI Analiz Paneli")
 
 if st.sidebar.text_input("Giriş Şifresi:", type="password") == "fresh123":
     
-    sheet_id = "1JH3T2ib46IFuT5mnAkQoGQ1V4sZnwHaAUZA9ms1wKXo" 
+    sheet_id = "SENİN_SHEET_ID_BURAYA_GELECEK" # <-- BURAYI DEĞİŞTİRMEYİ UNUTMA KİRAL
     url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv"
     
     try:
@@ -29,7 +29,7 @@ if st.sidebar.text_input("Giriş Şifresi:", type="password") == "fresh123":
         mask = (df['Tarih'].dt.date >= start_date) & (df['Tarih'].dt.date <= end_date)
         filtered_df = df.loc[mask].copy()
         
-        # Tüm sütunları (Tarih hariç) temizleyip sayıya çeviriyoruz (None'lar 0 oluyor)
+        # Tüm sütunları (Tarih hariç) temizleyip sayıya çeviriyoruz
         for col in filtered_df.columns:
             if col != 'Tarih':
                 temiz = filtered_df[col].astype(str).str.replace('₺', '', regex=False).str.replace('.', '', regex=False).str.replace('%', '', regex=False).str.replace('None', '0', regex=False).str.replace(',', '.', regex=False)
@@ -43,11 +43,11 @@ if st.sidebar.text_input("Giriş Şifresi:", type="password") == "fresh123":
         toplam_satiri_df['Tarih'] = 'TOPLAM'
         filtered_df = pd.concat([filtered_df, toplam_satiri_df], ignore_index=True)
         
-        # Makyaj: Sayıları şık formata çevir (₺1.234,56 veya %2,42)
+        # Makyaj: Sayıları şık formata çevir
         def formatla(val, col_name):
             if isinstance(val, (int, float)):
                 fmt_val = f"{val:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-                if any(x in col_name.lower() for x in ['cos', 'katkı', 'gelir']): # Yüzdelik olanlar
+                if any(x in col_name.lower() for x in ['cos', 'katkı', 'gelir']): 
                     return f"%{fmt_val}"
                 else:
                     return f"₺{fmt_val}"
@@ -57,19 +57,16 @@ if st.sidebar.text_input("Giriş Şifresi:", type="password") == "fresh123":
             if col != 'Tarih':
                 filtered_df[col] = filtered_df[col].apply(lambda x: formatla(x, col))
         
+        # Satır boyama kuralı
+        def satir_boya(row):
+            if row['Tarih'] == 'TOPLAM':
+                return ['background-color: #004d40; color: white; font-weight: bold'] * len(row)
+            return [''] * len(row)
+
         st.subheader("📊 Seçili Tarihler ve Kesin Toplam")
-st.dataframe(filtered_df)
-
-# Satır boyama kuralı
-def satir_boya(row):
-    if row['Tarih'] == 'TOPLAM':
-        return ['background-color: #004d40; color: white; font-weight: bold'] * len(row) # Koyu yeşil tonu
-    return [''] * len(row)
-
-st.subheader("📊 Seçili Tarihler ve Kesin Toplam")
-st.dataframe(filtered_df.style.apply(satir_boya, axis=1))
+        st.dataframe(filtered_df.style.apply(satir_boya, axis=1)) 
         
-       # 4. Hazır Sorular ve AI Bağlantısı
+        # 4. Hazır Sorular ve AI Bağlantısı
         st.subheader("🤖 AI'a Ne Sormak İstersin?")
         sorular = [
             "CPA ve COS oranlarına göre reklam verimliliğini değerlendir.",
@@ -93,7 +90,7 @@ st.dataframe(filtered_df.style.apply(satir_boya, axis=1))
                     prompt = f"Sen bir e-ticaret ve CRM uzmanısın. Şu satış verilerine bakarak sadece aşağıdaki soruları net ve kısa cevapla:\n\nSorular:\n- {soru_metni}\n\nVeri:\n{filtered_df.to_string()}"
                     response = model.generate_content(prompt)
                     st.success(response.text)
-                
+                    
     except Exception as e:
         st.error(f"Hata kiral! Hata detayı: {e}")
 else:
