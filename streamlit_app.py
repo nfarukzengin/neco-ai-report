@@ -25,15 +25,26 @@ if st.sidebar.text_input("Giriş Şifresi:", type="password") == "fresh123":
         with col2:
             end_date = st.date_input("Bitiş Tarihi", df['Tarih'].max())
             
-        # 3. Seçilen tarihe göre veriyi filtrele
+        # 3. Veriyi Filtrele, Temizle ve Toplam Satırı Ekle
         mask = (df['Tarih'].dt.date >= start_date) & (df['Tarih'].dt.date <= end_date)
         filtered_df = df.loc[mask].copy()
         
-        # Tarihleri ekranda tekrar düzgün göstermek için eski haline (String) çevir
+        # Para birimlerini ve None'ları sayıya çevir (Matematik için)
+        for col in filtered_df.columns:
+            if col not in ['Tarih', 'Ürün Reklam', 'İnf Reklam', 'Cpas Reklam']: # Metin sütunlarını atla
+                filtered_df[col] = filtered_df[col].astype(str).str.replace('₺', '').str.replace('.', '').str.replace('None', '0').str.replace(',', '.')
+                filtered_df[col] = pd.to_numeric(filtered_df[col], errors='coerce').fillna(0)
+        
+        # Tarih formatını ekranda düzgün göstermek için ayarla
         filtered_df['Tarih'] = filtered_df['Tarih'].dt.strftime('%d.%m.%Y')
         
-        st.subheader("📊 Seçili Tarihlerin Verisi")
-        st.dataframe(filtered_df) 
+        # Gerçek matematiği yap ve en alta 'TOPLAM' satırı olarak ekle
+        toplam_satiri = filtered_df.select_dtypes(include='number').sum()
+        toplam_satiri['Tarih'] = 'TOPLAM'
+        filtered_df = pd.concat([filtered_df, pd.DataFrame([toplam_satiri])], ignore_index=True)
+        
+        st.subheader("📊 Seçili Tarihler ve Kesin Toplam")
+        st.dataframe(filtered_df)
         
        # 4. Hazır Sorular ve AI Bağlantısı
         st.subheader("🤖 AI'a Ne Sormak İstersin?")
