@@ -21,12 +21,18 @@ if sifre == "fresh123":
         "Manuel Giriş (ID Yaz)": {
             "Yeni Bağlantı": ""
         },
-        "Fresh Scarfs": {
-            "Günlük Rapor": "FRESH_ID_BURAYA",
+       "Fresh Scarfs": {
+
+            "Fresh Scarfs Reklam COS | Trendyol": "1JH3T2ib46IFuT5mnAkQoGQ1V4sZnwHaAUZA9ms1wKXo",
+
             "Aylık Özet": "FRESH_AYLIK_ID_BURAYA"
+
         },
+
         "Manuka": {
-            "Manuka Estimate Mart": "MANUKA_ID_BURAYA",
+
+            "Manuka Estimate Mart": "11BsMe68YenKhK4UDddwBeaEJgz4zJA9ZRBAxNIAIaIY",
+
             "Manuka Reklam COS | Trendyol": "1cnxOLFg3qzggWIL7gPaTrsTa63uywmISroC8lbz2V7o"
         }
     }
