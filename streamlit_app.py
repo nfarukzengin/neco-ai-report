@@ -17,17 +17,16 @@ if sifre == "fresh123":
     st.sidebar.markdown("---")
     st.sidebar.subheader("📁 Dosya Yöneticisi")
     
-    # KENDİ KLASÖRLERİNİ VE ID'LERİNİ BURAYA EKLE
     klasorler = {
-        "Klasör Seç": {
+        "Manuel Giriş (ID Yaz)": {
             "Yeni Bağlantı": ""
         },
         "Fresh Scarfs": {
-            "Fresh Scarfs Reklam COS | Trendyol": "1JH3T2ib46IFuT5mnAkQoGQ1V4sZnwHaAUZA9ms1wKXo",
+            "Günlük Rapor": "FRESH_ID_BURAYA",
             "Aylık Özet": "FRESH_AYLIK_ID_BURAYA"
         },
         "Manuka": {
-            "Manuka Estimate Mart": "11BsMe68YenKhK4UDddwBeaEJgz4zJA9ZRBAxNIAIaIY",
+            "Manuka Estimate Mart": "MANUKA_ID_BURAYA",
             "Manuka Reklam COS | Trendyol": "1cnxOLFg3qzggWIL7gPaTrsTa63uywmISroC8lbz2V7o"
         }
     }
@@ -40,14 +39,13 @@ if sifre == "fresh123":
     else:
         sheet_id_input = klasorler[secilen_klasor][secilen_dosya]
         
-    # Varsayılan metinleri filtrele
     gecersiz_idler = ["", "FRESH_ID_BURAYA", "FRESH_AYLIK_ID_BURAYA", "MANUKA_ID_BURAYA"]
 
     if sheet_id_input and sheet_id_input not in gecersiz_idler:
         url = f"https://docs.google.com/spreadsheets/d/{sheet_id_input}/export?format=xlsx"
         
         try:
-            # --- DOSYA ADINI ÇEKME KODU ---
+            # --- DOSYA ADINI ÇEKME ---
             try:
                 html = urllib.request.urlopen(f"https://docs.google.com/spreadsheets/d/{sheet_id_input}/edit").read().decode('utf-8')
                 dosya_adi = re.search(r'<title>(.*?)</title>', html).group(1).replace(" - Google Tablolar", "").replace(" - Google Sheets", "")
@@ -55,26 +53,35 @@ if sifre == "fresh123":
                 dosya_adi = "Rapor"
             
             st.success(f"📂 Çalışılan Dosya: **{dosya_adi}**")
-            # ------------------------------
 
             tum_sayfalar = pd.read_excel(url, sheet_name=None)
             sayfa_isimleri = list(tum_sayfalar.keys())
             secilen_sayfa = st.sidebar.selectbox("📂 Sayfa (Sekme) Seç:", sayfa_isimleri)
             
-            df = tum_sayfalar[secilen_sayfa]
+            df = tum_sayfalar[secilen_sayfa].copy()
             
             df['Tarih_Formatli'] = pd.to_datetime(df['Tarih'], format='%d.%m.%Y', errors='coerce')
             df = df.dropna(subset=['Tarih_Formatli'])
             
+            # --- KRİTİK DÜZELTME: SADECE METİNSE TEMİZLE, SAYIYSA DOKUNMA! ---
             for col in df.columns:
-                if col not in ['Tarih', 'Tarih_Formatli', 'Ürün Reklam', 'İnf Reklam', 'Cpas Reklam']:
-                    temiz = df[col].astype(str).str.replace('₺', '', regex=False).str.replace('.', '', regex=False).str.replace('%', '', regex=False).str.replace('None', '0', regex=False).str.replace(',', '.', regex=False)
-                    df[col] = pd.to_numeric(temiz, errors='coerce').fillna(0)
+                if col not in ['Tarih', 'Tarih_Formatli', 'Ürün Reklam', 'İnf Reklam', 'Cpas Reklam', 'Ürün Adı', 'Kampanya']:
+                    def temizle(x):
+                        if isinstance(x, str): # Eğer hücre metinse özel karakterleri sil
+                            x = x.replace('₺', '').replace('%', '').replace('None', '0').strip()
+                            # Türk tipi (1.234,56) formatını koda uygun (1234.56) yap
+                            if '.' in x and ',' in x:
+                                x = x.replace('.', '').replace(',', '.')
+                            elif ',' in x:
+                                x = x.replace(',', '.')
+                        return x # Zaten sayıysa (float/int) hiç dokunmadan geri ver
+                    
+                    df[col] = df[col].apply(temizle)
+                    df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
 
             st.sidebar.markdown("---")
             sekme = st.sidebar.radio("📌 Menü", ["Ana Analiz", "Karşılaştırma"])
 
-            # ---------------- ANA ANALİZ SEKMESİ ----------------
             if sekme == "Ana Analiz":
                 st.subheader(f"📅 Tarih Aralığı Seç ({secilen_sayfa})")
                 col1, col2 = st.columns(2)
@@ -93,11 +100,29 @@ if sifre == "fresh123":
                 toplam_satiri_df['Tarih'] = 'TOPLAM'
                 filtered_df = pd.concat([filtered_df, toplam_satiri_df], ignore_index=True)
                 
+                # --- FORMATLAMA DÜZELTİLDİ ---
                 def formatla(val, col_name):
                     if isinstance(val, (int, float)):
-                        fmt_val = f"{val:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-                        if any(x in col_name.lower() for x in ['cos', 'katkı', 'gelir']): return f"%{fmt_val}"
-                        else: return f"₺{fmt_val}"
+                        c_lower = col_name.lower()
+                        
+                        # 1. Yüzdelikler (CR, COS vb.)
+                        if any(x in c_lower for x in ['cos', 'katkı', 'gelir', 'cr']) and 'cost' not in c_lower:
+                            # Excel 0.02 veriyorsa %2 yapmak için 100 ile çarpıyoruz
+                            if val < 10 and val > -10: val = val * 100 
+                            fmt_val = f"{val:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+                            return f"%{fmt_val}"
+                            
+                        # 2. Para Birimleri (Revenue, Cost, AOV vb.)
+                        elif any(x in c_lower for x in ['revenue', 'cost', 'cpc', 'cpa', 'harcama', 'aov', 'cps', 'rps']):
+                            fmt_val = f"{val:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+                            return f"₺{fmt_val}"
+                            
+                        # 3. Düz Sayılar (Session, Trx vb.) - İşaretsiz kalsın
+                        else:
+                            fmt_val = f"{val:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+                            # Sonu tam sayıysa (,00) gereksiz sıfırları at
+                            if fmt_val.endswith(",00"): fmt_val = fmt_val[:-3]
+                            return fmt_val
                     return val
 
                 for col in filtered_df.columns:
@@ -131,7 +156,6 @@ if sifre == "fresh123":
                             prompt = f"Şu verilere bakarak kısa cevap ver:\nSorular: {secilen_sorular}\nVeri:\n{filtered_df.to_string()}"
                             st.success(model.generate_content(prompt).text)
 
-            # ---------------- KARŞILAŞTIRMA SEKMESİ ----------------
             elif sekme == "Karşılaştırma":
                 st.subheader(f"⚖️ Dönem Karşılaştırması ({secilen_sayfa})")
                 
@@ -195,6 +219,23 @@ if sifre == "fresh123":
                     st.dataframe(kiyas_df.style.map(renk_ver, subset=['Değişim (%)']).format({'Önceki Dönem': '{:,.2f}', 'Güncel Dönem': '{:,.2f}', 'Fark': '{:,.2f}', 'Değişim (%)': '%{:.2f}'}))
                 except AttributeError:
                     st.dataframe(kiyas_df.style.applymap(renk_ver, subset=['Değişim (%)']).format({'Önceki Dönem': '{:,.2f}', 'Güncel Dönem': '{:,.2f}', 'Fark': '{:,.2f}', 'Değişim (%)': '%{:.2f}'}))
+
+                st.subheader("🤖 Karşılaştırma Analizi için AI'a Sor")
+                kiyas_sorular = [
+                    "Geçen döneme göre cirodaki değişimi ve karlılığı (COS/ROAS) değerlendir.",
+                    "CPA ve reklam harcamalarındaki artış/azalış ciroya nasıl yansımış? Yorumla.",
+                    "En çok artış ve düşüş gösteren metrikleri bulup, önümüzdeki dönem için 2 stratejik öneri ver.",
+                    "Bu iki dönemi kıyasladığında reklam bütçesini nasıl optimize etmeliyim?"
+                ]
+                secilen_kiyas_sorular = st.multiselect("Soruları Seç (Karşılaştırma):", kiyas_sorular)
+                
+                if st.button("Karşılaştırmayı Sorgula"):
+                    if not secilen_kiyas_sorular: 
+                        st.warning("Soru seç kiral!")
+                    else:
+                        with st.spinner('Karşılaştırma raporu hazırlanıyor kiral...'):
+                            prompt = f"Sen bir e-ticaret ve CRM uzmanısın. Şu iki dönemin karşılaştırma verilerine bakarak seçtiğim sorulara kısa, net ve aksiyon odaklı cevap ver:\n\nSorular:\n{secilen_kiyas_sorular}\n\nKarşılaştırma Verisi:\n{kiyas_df.to_string()}"
+                            st.success(model.generate_content(prompt).text)
 
         except Exception as e:
             st.error(f"Hata kiral! Belki sekme formatları farklıdır. Detay: {e}")
