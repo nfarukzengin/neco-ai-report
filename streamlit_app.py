@@ -35,18 +35,30 @@ if st.sidebar.text_input("Giriş Şifresi:", type="password") == "fresh123":
         st.subheader("📊 Seçili Tarihlerin Verisi")
         st.dataframe(filtered_df) 
         
-       # 4. AI (Gemini) Bağlantısı
-        genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+       # 4. Hazır Sorular ve AI Bağlantısı
+        st.subheader("🤖 AI'a Ne Sormak İstersin?")
+        sorular = [
+            "CPA ve COS oranlarına göre reklam verimliliğini değerlendir.",
+            "En yüksek ve en düşük ciro yapılan günleri kıyasla, sence neden?",
+            "Reklam harcamalarının ciroya katkısını analiz et, kârlı mıyız?",
+            "Bu verilere göre yarınki reklam bütçesini artırmalı mıyım, kısmalı mıyım?",
+            "Sadık müşteri kazanımı (CRM) için bu tabloya göre nasıl bir aksiyon almalıyım?"
+        ]
+        secilen_sorular = st.multiselect("Soruları Seç (Birden fazla seçebilirsin):", sorular)
         
-        # API anahtarına tanımlı ve çalışan modeli otomatik buluyoruz
+        genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
         uygun_modeller = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
         model = genai.GenerativeModel(uygun_modeller[0])
         
-        if st.button("Seçili Tarihleri AI ile Yorumla"):
-            with st.spinner('Rapor hazırlanıyor kiral...'):
-                prompt = f"Sen bir e-ticaret ve CRM uzmanısın. Şu satış verilerine bakarak bana 3 kısa ve net çıkarım yap: {filtered_df.to_string()}"
-                response = model.generate_content(prompt)
-                st.success(response.text)
+        if st.button("Sorgula"):
+            if not secilen_sorular:
+                st.warning("Kiral, önce yukarıdan en az bir soru seçmelisin!")
+            else:
+                with st.spinner('Cevaplar hazırlanıyor kiral...'):
+                    soru_metni = "\n- ".join(secilen_sorular)
+                    prompt = f"Sen bir e-ticaret ve CRM uzmanısın. Şu satış verilerine bakarak sadece aşağıdaki soruları net ve kısa cevapla:\n\nSorular:\n- {soru_metni}\n\nVeri:\n{filtered_df.to_string()}"
+                    response = model.generate_content(prompt)
+                    st.success(response.text)
                 
     except Exception as e:
         st.error(f"Hata kiral! Hata detayı: {e}")
