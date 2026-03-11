@@ -18,10 +18,11 @@ if sifre == "fresh123":
     st.sidebar.markdown("---")
     st.sidebar.subheader("📁 Dosya Yöneticisi")
     
+    # --- MANUEL GİRİŞ HER ZAMAN EN ÜSTTE ---
+    manuel_id = st.sidebar.text_input("🔗 Manuel Google Sheet ID (Öncelikli):")
+    st.sidebar.markdown("*Veya aşağıdan kayıtlı bir dosya seçin:*")
+    
     klasorler = {
-        "Manuel Giriş (ID Yaz)": {
-            "Yeni Bağlantı": ""
-        },
         "Fresh Scarfs": {
 
 
@@ -53,8 +54,9 @@ if sifre == "fresh123":
     secilen_klasor = st.sidebar.selectbox("Klasör Seç:", list(klasorler.keys()))
     secilen_dosya = st.sidebar.selectbox("Dosya Seç:", list(klasorler[secilen_klasor].keys()))
     
-    if secilen_klasor == "Manuel Giriş (ID Yaz)":
-        sheet_id_input = st.sidebar.text_input("Google Sheet ID Girin:")
+    # Manuel ID varsa onu kullan, yoksa klasördekini kullan
+    if manuel_id.strip() != "":
+        sheet_id_input = manuel_id.strip()
     else:
         sheet_id_input = klasorler[secilen_klasor][secilen_dosya]
         
@@ -118,7 +120,6 @@ if sifre == "fresh123":
                 if not varsayilan_secim and sayisal_sutunlar:
                     varsayilan_secim = [sayisal_sutunlar[0]]
 
-                # Anahtar eklendi (key="grafik_metrik")
                 secilen_metrikler = st.multiselect("Grafikte Gösterilecek Metrikleri Seç:", sayisal_sutunlar, default=varsayilan_secim, key="grafik_metrik")
                 
                 if secilen_metrikler:
@@ -180,7 +181,6 @@ if sifre == "fresh123":
                     "Bu verilere göre yarınki reklam bütçesini artırmalı mıyım, kısmalı mıyım?",
                     "Sadık müşteri kazanımı (CRM) için bu tabloya göre nasıl bir aksiyon almalıyım?"
                 ]
-                # Anahtar eklendi (key="ana_ai_secim")
                 secilen_sorular = st.multiselect("Soruları Seç:", sorular, key="ana_ai_secim")
                 
                 genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
@@ -265,7 +265,6 @@ if sifre == "fresh123":
                     "En çok artış ve düşüş gösteren metrikleri bulup, önümüzdeki dönem için 2 stratejik öneri ver.",
                     "Bu iki dönemi kıyasladığında reklam bütçesini nasıl optimize etmeliyim?"
                 ]
-                # Anahtar eklendi (key="kiyas_ai_secim")
                 secilen_kiyas_sorular = st.multiselect("Soruları Seç (Karşılaştırma):", kiyas_sorular, key="kiyas_ai_secim")
                 
                 if st.button("Karşılaştırmayı Sorgula"):
@@ -279,7 +278,7 @@ if sifre == "fresh123":
         except Exception as e:
             st.error(f"Hata kiral! Belki sekme formatları farklıdır. Detay: {e}")
     else:
-        st.info("Kiral, başlamak için lütfen klasörden bir dosya seç veya manuel ID gir.")
+        st.info("Kiral, başlamak için lütfen sol menüden bir dosya seç veya manuel ID gir.")
 else:
     if sifre:
         st.warning("Şifre yanlış kiral!")
