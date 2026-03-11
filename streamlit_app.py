@@ -17,6 +17,18 @@ if sifre == "fresh123":
         url = f"https://docs.google.com/spreadsheets/d/{sheet_id_input}/export?format=xlsx"
         
         try:
+# --- DOSYA ADINI ÇEKME KODU ---
+            import urllib.request
+            import re
+            try:
+                html = urllib.request.urlopen(f"https://docs.google.com/spreadsheets/d/{sheet_id_input}/edit").read().decode('utf-8')
+                dosya_adi = re.search(r'<title>(.*?)</title>', html).group(1).replace(" - Google Tablolar", "").replace(" - Google Sheets", "")
+            except:
+                dosya_adi = "Fresh Scarfs Raporu"
+            
+            st.success(f"📂 Çalışılan Dosya: **{dosya_adi}**")
+            # ------------------------------
+            
             tum_sayfalar = pd.read_excel(url, sheet_name=None)
             sayfa_isimleri = list(tum_sayfalar.keys())
             secilen_sayfa = st.sidebar.selectbox("📂 Sayfa (Sekme) Seç:", sayfa_isimleri)
