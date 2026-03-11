@@ -34,6 +34,7 @@ if sifre == "fresh123":
             st.sidebar.markdown("---")
             sekme = st.sidebar.radio("📌 Menü", ["Ana Analiz", "Karşılaştırma"])
 
+            # ---------------- ANA ANALİZ SEKMESİ ----------------
             if sekme == "Ana Analiz":
                 st.subheader(f"📅 Tarih Aralığı Seç ({secilen_sayfa})")
                 col1, col2 = st.columns(2)
@@ -54,7 +55,6 @@ if sifre == "fresh123":
                 
                 def formatla(val, col_name):
                     if isinstance(val, (int, float)):
-                        # Yüzdelik değerleri 100 ile çarpıp formatlıyoruz
                         if any(x in col_name.lower() for x in ['cos', 'katkı', 'gelir']) and 'cost' not in col_name.lower(): 
                             fmt_val = f"{(val * 100):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
                             return f"%{fmt_val}"
@@ -94,6 +94,7 @@ if sifre == "fresh123":
                             prompt = f"Şu verilere bakarak kısa cevap ver:\nSorular: {secilen_sorular}\nVeri:\n{filtered_df.to_string()}"
                             st.success(model.generate_content(prompt).text)
 
+            # ---------------- KARŞILAŞTIRMA SEKMESİ ----------------
             elif sekme == "Karşılaştırma":
                 st.subheader(f"⚖️ Dönem Karşılaştırması ({secilen_sayfa})")
                 
@@ -157,6 +158,28 @@ if sifre == "fresh123":
                     st.dataframe(kiyas_df.style.map(renk_ver, subset=['Değişim (%)']).format({'Önceki Dönem': '{:,.2f}', 'Güncel Dönem': '{:,.2f}', 'Fark': '{:,.2f}', 'Değişim (%)': '%{:.2f}'}))
                 except AttributeError:
                     st.dataframe(kiyas_df.style.applymap(renk_ver, subset=['Değişim (%)']).format({'Önceki Dönem': '{:,.2f}', 'Güncel Dönem': '{:,.2f}', 'Fark': '{:,.2f}', 'Değişim (%)': '%{:.2f}'}))
+
+                # --- KARŞILAŞTIRMA AI ALANI EKLENDİ ---
+                st.subheader("🤖 Karşılaştırma Analizi için AI'a Sor")
+                kiyas_sorular = [
+                    "Geçen döneme göre cirodaki değişimi ve karlılığı (COS/ROAS) değerlendir.",
+                    "CPA ve reklam harcamalarındaki artış/azalış ciroya nasıl yansımış? Yorumla.",
+                    "En çok artış ve düşüş gösteren metrikleri bulup, önümüzdeki dönem için 2 stratejik öneri ver.",
+                    "Bu iki dönemi kıyasladığında reklam bütçesini nasıl optimize etmeliyim?"
+                ]
+                secilen_kiyas_sorular = st.multiselect("Soruları Seç (Karşılaştırma):", kiyas_sorular)
+                
+                genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+                uygun_modeller = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+                model = genai.GenerativeModel(uygun_modeller[0])
+                
+                if st.button("Karşılaştırmayı Sorgula"):
+                    if not secilen_kiyas_sorular: 
+                        st.warning("Soru seç kiral!")
+                    else:
+                        with st.spinner('Karşılaştırma raporu hazırlanıyor kiral...'):
+                            prompt = f"Sen bir e-ticaret ve CRM uzmanısın. Şu iki dönemin karşılaştırma verilerine bakarak seçtiğim sorulara kısa, net ve aksiyon odaklı cevap ver:\n\nSorular:\n{secilen_kiyas_sorular}\n\nKarşılaştırma Verisi:\n{kiyas_df.to_string()}"
+                            st.success(model.generate_content(prompt).text)
 
         except Exception as e:
             st.error(f"Hata kiral! Belki sekme formatları farklıdır. Detay: {e}")
