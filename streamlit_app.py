@@ -1,16 +1,33 @@
 import streamlit as st
 import pandas as pd
+import google.generativeai as genai
 
-st.title("🚀 Fresh Scarfs Satış Dashboard")
+st.set_page_config(page_title="Neco AI", layout="wide")
+st.title("🚀 Fresh Scarfs AI Analiz Paneli")
 
-# Sheets URL'ni buraya yapıştıracaksın kiral
-# URL'nin sonundaki /edit... kısmını silip /export?format=csv eklemeyi unutma!
-sheet_id = "BURAYA_SHEET_ID_GELECEK"
-url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv"
-
-try:
-    df = pd.read_csv(url)
-    st.subheader("📊 Güncel Tablo")
-    st.dataframe(df) # Veriyi ekrana basar
-except:
-    st.error("Veri çekilemedi. Sheets linkini 'Bağlantıya sahip herkes' olarak ayarladın mı?")
+# Şifre Koruması
+if st.sidebar.text_input("Giriş Şifresi:", type="password") == "fresh123":
+    
+    # 1. Veriyi Çek (Sheets'ten)
+    sheet_id = "1JH3T2ib46IFuT5mnAkQoGQ1V4sZnwHaAUZA9ms1wKXo" # <-- BURAYI DEĞİŞTİR KİRAL
+    url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv"
+    
+    try:
+        df = pd.read_csv(url)
+        st.subheader("📊 Son Satış Verileri")
+        st.dataframe(df.tail(5)) # Tablonun son 5 satırı
+        
+        # 2. AI (Gemini) Bağlantısı
+        genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+        model = genai.GenerativeModel('gemini-1.5-flash')
+        
+        if st.button("AI ile Yorumla"):
+            with st.spinner('Necocuğum için veri inceleniyor...'):
+                prompt = f"Sen bir e-ticaret ve CRM uzmanısın. Şu satış verilerine bakarak bana 3 kısa ve net çıkarım yap: {df.tail(5).to_string()}"
+                response = model.generate_content(prompt)
+                st.success(response.text)
+                
+    except Exception as e:
+        st.error("Veri çekilemedi hayatım! Sheets linkinin 'Bağlantıya sahip olan herkes görebilir' olduğundan emin ol.")
+else:
+    st.warning("Giriş yetkiniz yok güzelim. Şifreyi girin!")
