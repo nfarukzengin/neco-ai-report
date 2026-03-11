@@ -14,10 +14,20 @@ sheet_id_input = st.sidebar.text_input("Google Sheet ID:")
 
 if sifre == "fresh123":
     if sheet_id_input:
-        url = f"https://docs.google.com/spreadsheets/d/{sheet_id_input}/export?format=csv"
+        # CSV yerine XLSX formatında çekiyoruz ki tüm sekmeleri görebilelim
+        url = f"https://docs.google.com/spreadsheets/d/{sheet_id_input}/export?format=xlsx"
         
         try:
-            df = pd.read_csv(url)
+            # Tüm sekmeleri sözlük (dict) olarak çek
+            tum_sayfalar = pd.read_excel(url, sheet_name=None)
+            sayfa_isimleri = list(tum_sayfalar.keys())
+            
+            # Sol menüye sayfa seçici ekle
+            secilen_sayfa = st.sidebar.selectbox("📂 Sayfa (Sekme) Seç:", sayfa_isimleri)
+            
+            # Seçilen sayfanın verisini ana tablo (df) yap
+            df = tum_sayfalar[secilen_sayfa]
+            
             df['Tarih_Formatli'] = pd.to_datetime(df['Tarih'], format='%d.%m.%Y', errors='coerce')
             df = df.dropna(subset=['Tarih_Formatli'])
             
@@ -31,7 +41,7 @@ if sifre == "fresh123":
 
             # ---------------- ANA ANALİZ SEKMESİ ----------------
             if sekme == "Ana Analiz":
-                st.subheader("📅 Tarih Aralığı Seç")
+                st.subheader(f"📅 Tarih Aralığı Seç ({secilen_sayfa})")
                 col1, col2 = st.columns(2)
                 with col1:
                     start_date = st.date_input("Başlangıç", df['Tarih_Formatli'].min().date())
@@ -88,7 +98,7 @@ if sifre == "fresh123":
 
             # ---------------- KARŞILAŞTIRMA SEKMESİ ----------------
             elif sekme == "Karşılaştırma":
-                st.subheader("⚖️ Dönem Karşılaştırması")
+                st.subheader(f"⚖️ Dönem Karşılaştırması ({secilen_sayfa})")
                 
                 bugun = date.today()
                 
@@ -152,7 +162,7 @@ if sifre == "fresh123":
                     st.dataframe(kiyas_df.style.applymap(renk_ver, subset=['Değişim (%)']).format({'Önceki Dönem': '{:,.2f}', 'Güncel Dönem': '{:,.2f}', 'Fark': '{:,.2f}', 'Değişim (%)': '%{:.2f}'}))
 
         except Exception as e:
-            st.error(f"Hata kiral! Detay: {e}")
+            st.error(f"Hata kiral! Belki sekme formatları farklıdır. Detay: {e}")
     else:
         st.info("Kiral, verileri çekmek için lütfen menüden Google Sheet ID gir.")
 else:
