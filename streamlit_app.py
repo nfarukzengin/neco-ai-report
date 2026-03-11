@@ -7,7 +7,7 @@ st.title("🚀 Fresh Scarfs AI Analiz Paneli")
 
 if st.sidebar.text_input("Giriş Şifresi:", type="password") == "fresh123":
     
-    sheet_id = "SENİN_SHEET_ID_BURAYA_GELECEK" # <-- BURAYI DEĞİŞTİRMEYİ UNUTMA KİRAL
+    sheet_id = "1JH3T2ib46IFuT5mnAkQoGQ1V4sZnwHaAUZA9ms1wKXo" # <-- BURAYI DEĞİŞTİRMEYİ UNUTMA KİRAL
     url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv"
     
     try:
