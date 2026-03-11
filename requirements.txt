@@ -1,5 +1,3 @@
 pandas
 streamlit
 google-generativeai
-altair<5
-imghdr
