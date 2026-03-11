@@ -99,8 +99,24 @@ if sifre == "fresh123":
                 filtered_df = df.loc[mask].copy()
                 
                 # --- GRAFİK ALANI ---
+                # --- GRAFİK ALANI ---
                 st.subheader("📈 Trend Grafiği")
-                grafik_df = filtered_df.copy()
+                grafik_df = filtered_df.copy().sort_values('Tarih_Formatli')
+                
+                # Sıralamanın bozulmaması için indeksi orijinal tarih formatında bırakıyoruz
+                grafik_df.set_index('Tarih_Formatli', inplace=True)
+                
+                sayisal_sutunlar = grafik_df.select_dtypes(include=np.number).columns.tolist()
+                varsayilan_secim = [col for col in sayisal_sutunlar if any(x in col.lower() for x in ['revenue', 'cost', 'ciro', 'harcama'])]
+                if not varsayilan_secim and sayisal_sutunlar:
+                    varsayilan_secim = [sayisal_sutunlar[0]]
+
+                secilen_metrikler = st.multiselect("Grafikte Gösterilecek Metrikleri Seç:", sayisal_sutunlar, default=varsayilan_secim)
+                
+                if secilen_metrikler:
+                    st.line_chart(grafik_df[secilen_metrikler])
+                st.markdown("---")
+                # ----------------------------
                 
                 # Tarihleri Türkçeleştirme (Örn: 15 Mart)
                 aylar_tr = {1: 'Ocak', 2: 'Şubat', 3: 'Mart', 4: 'Nisan', 5: 'Mayıs', 6: 'Haziran', 
