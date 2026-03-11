@@ -14,32 +14,27 @@ sheet_id_input = st.sidebar.text_input("Google Sheet ID:")
 
 if sifre == "fresh123":
     if sheet_id_input:
-        # CSV yerine XLSX formatında çekiyoruz ki tüm sekmeleri görebilelim
         url = f"https://docs.google.com/spreadsheets/d/{sheet_id_input}/export?format=xlsx"
         
         try:
-            # Tüm sekmeleri sözlük (dict) olarak çek
             tum_sayfalar = pd.read_excel(url, sheet_name=None)
             sayfa_isimleri = list(tum_sayfalar.keys())
-            
-            # Sol menüye sayfa seçici ekle
             secilen_sayfa = st.sidebar.selectbox("📂 Sayfa (Sekme) Seç:", sayfa_isimleri)
             
-            # Seçilen sayfanın verisini ana tablo (df) yap
-            df = tum_sayfalar[secilen_sayfa]
+            df = tum_sayfalar[secilen_sayfa].copy()
             
             df['Tarih_Formatli'] = pd.to_datetime(df['Tarih'], format='%d.%m.%Y', errors='coerce')
             df = df.dropna(subset=['Tarih_Formatli'])
             
+            # --- DÜZELTME 1: Sadece metin olanları temizle, hazır sayıları bozma ---
             for col in df.columns:
                 if col not in ['Tarih', 'Tarih_Formatli', 'Ürün Reklam', 'İnf Reklam', 'Cpas Reklam']:
-                    temiz = df[col].astype(str).str.replace('₺', '', regex=False).str.replace('.', '', regex=False).str.replace('%', '', regex=False).str.replace('None', '0', regex=False).str.replace(',', '.', regex=False)
-                    df[col] = pd.to_numeric(temiz, errors='coerce').fillna(0)
+                    df[col] = df[col].apply(lambda x: str(x).replace('₺', '').replace('.', '').replace('%', '').replace('None', '0').replace(',', '.') if isinstance(x, str) else x)
+                    df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
 
             st.sidebar.markdown("---")
             sekme = st.sidebar.radio("📌 Menü", ["Ana Analiz", "Karşılaştırma"])
 
-            # ---------------- ANA ANALİZ SEKMESİ ----------------
             if sekme == "Ana Analiz":
                 st.subheader(f"📅 Tarih Aralığı Seç ({secilen_sayfa})")
                 col1, col2 = st.columns(2)
@@ -58,11 +53,15 @@ if sifre == "fresh123":
                 toplam_satiri_df['Tarih'] = 'TOPLAM'
                 filtered_df = pd.concat([filtered_df, toplam_satiri_df], ignore_index=True)
                 
+                # --- DÜZELTME 2: Cost kelimesini ayır ---
                 def formatla(val, col_name):
                     if isinstance(val, (int, float)):
                         fmt_val = f"{val:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-                        if any(x in col_name.lower() for x in ['cos', 'katkı', 'gelir']): return f"%{fmt_val}"
-                        else: return f"₺{fmt_val}"
+                        # Sütun adında cos, katkı, gelir varsa VE cost YOKSA yüzde yap
+                        if any(x in col_name.lower() for x in ['cos', 'katkı', 'gelir']) and 'cost' not in col_name.lower(): 
+                            return f"%{fmt_val}"
+                        else: 
+                            return f"₺{fmt_val}"
                     return val
 
                 for col in filtered_df.columns:
@@ -96,7 +95,6 @@ if sifre == "fresh123":
                             prompt = f"Şu verilere bakarak kısa cevap ver:\nSorular: {secilen_sorular}\nVeri:\n{filtered_df.to_string()}"
                             st.success(model.generate_content(prompt).text)
 
-            # ---------------- KARŞILAŞTIRMA SEKMESİ ----------------
             elif sekme == "Karşılaştırma":
                 st.subheader(f"⚖️ Dönem Karşılaştırması ({secilen_sayfa})")
                 
