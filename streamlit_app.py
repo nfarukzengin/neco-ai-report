@@ -14,22 +14,18 @@ sheet_id_input = st.sidebar.text_input("Google Sheet ID:")
 
 if sifre == "fresh123":
     if sheet_id_input:
-        # CSV yerine XLSX formatında çekiyoruz ki tüm sekmeleri görebilelim
         url = f"https://docs.google.com/spreadsheets/d/{sheet_id_input}/export?format=xlsx"
         
         try:
-            # Tüm sekmeleri sözlük (dict) olarak çek
             tum_sayfalar = pd.read_excel(url, sheet_name=None)
             sayfa_isimleri = list(tum_sayfalar.keys())
-            
-            # Sol menüye sayfa seçici ekle
             secilen_sayfa = st.sidebar.selectbox("📂 Sayfa (Sekme) Seç:", sayfa_isimleri)
             
-            # Seçilen sayfanın verisini ana tablo (df) yap
             df = tum_sayfalar[secilen_sayfa]
             
-            df['Tarih_Formatli'] = pd.to_datetime(df['Tarih'], format='%d.%m.%Y', errors='coerce')
-            df = df.dropna(subset=['Tarih_Formatli'])
+            # KRİTİK GÜNCELLEME: Tarih sütununu temizleme ve hataları yok sayma
+            df['Tarih_Formatli'] = pd.to_datetime(df['Tarih'], dayfirst=True, errors='coerce')
+            df = df.dropna(subset=['Tarih_Formatli']) # Tarih olmayan satırları komple sil
             
             for col in df.columns:
                 if col not in ['Tarih', 'Tarih_Formatli', 'Ürün Reklam', 'İnf Reklam', 'Cpas Reklam']:
@@ -43,10 +39,13 @@ if sifre == "fresh123":
             if sekme == "Ana Analiz":
                 st.subheader(f"📅 Tarih Aralığı Seç ({secilen_sayfa})")
                 col1, col2 = st.columns(2)
-                with col1:
-                    start_date = st.date_input("Başlangıç", df['Tarih_Formatli'].min().date())
-                with col2:
-                    end_date = st.date_input("Bitiş", df['Tarih_Formatli'].max().date())
+                
+                # Tarih aralığını güvenli şekilde al
+                min_tarih = df['Tarih_Formatli'].min().date()
+                max_tarih = df['Tarih_Formatli'].max().date()
+                
+                with col1: start_date = st.date_input("Başlangıç", min_tarih)
+                with col2: end_date = st.date_input("Bitiş", max_tarih)
                     
                 mask = (df['Tarih_Formatli'].dt.date >= start_date) & (df['Tarih_Formatli'].dt.date <= end_date)
                 filtered_df = df.loc[mask].copy()
@@ -75,14 +74,9 @@ if sifre == "fresh123":
                 st.subheader("📊 Seçili Tarihler ve Kesin Toplam")
                 st.dataframe(filtered_df.style.apply(satir_boya, axis=1)) 
                 
+                # Gemini Bağlantısı
                 st.subheader("🤖 AI'a Ne Sormak İstersin?")
-                sorular = [
-                    "CPA ve COS oranlarına göre reklam verimliliğini değerlendir.",
-                    "En yüksek ve en düşük ciro yapılan günleri kıyasla, sence neden?",
-                    "Reklam harcamalarının ciroya katkısını analiz et, kârlı mıyız?",
-                    "Bu verilere göre yarınki reklam bütçesini artırmalı mıyım, kısmalı mıyım?",
-                    "Sadık müşteri kazanımı (CRM) için bu tabloya göre nasıl bir aksiyon almalıyım?"
-                ]
+                sorular = ["CPA ve COS oranlarına göre reklam verimliliğini değerlendir.", "Reklam harcamalarının ciroya katkısını analiz et, kârlı mıyız?"]
                 secilen_sorular = st.multiselect("Soruları Seç:", sorular)
                 
                 genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
@@ -92,53 +86,30 @@ if sifre == "fresh123":
                 if st.button("Sorgula"):
                     if not secilen_sorular: st.warning("Soru seç kiral!")
                     else:
-                        with st.spinner('Hazırlanıyor...'):
-                            prompt = f"Şu verilere bakarak kısa cevap ver:\nSorular: {secilen_sorular}\nVeri:\n{filtered_df.to_string()}"
+                        with st.spinner('İşleniyor...'):
+                            prompt = f"Şu verilere bakarak cevapla: {filtered_df.to_string()}"
                             st.success(model.generate_content(prompt).text)
 
             # ---------------- KARŞILAŞTIRMA SEKMESİ ----------------
             elif sekme == "Karşılaştırma":
                 st.subheader(f"⚖️ Dönem Karşılaştırması ({secilen_sayfa})")
-                
                 bugun = date.today()
                 
-                hizli_secim = st.selectbox("Hızlı Seçim (Otomatik Önceki Dönemle Kıyaslar)", 
-                                           ["Özel Tarih Seç", "Bugün", "Dün", "Son 7 Gün", "Son 15 Gün", "Son 30 Gün"])
+                hizli_secim = st.selectbox("Hızlı Seçim", ["Özel Tarih Seç", "Bugün", "Dün", "Son 7 Gün", "Son 15 Gün", "Son 30 Gün"])
                 
                 if hizli_secim == "Son 7 Gün":
-                    d1_end = bugun
-                    d1_start = bugun - timedelta(days=6)
-                    d2_end = d1_start - timedelta(days=1)
-                    d2_start = d2_end - timedelta(days=6)
-                elif hizli_secim == "Son 15 Gün":
-                    d1_end = bugun
-                    d1_start = bugun - timedelta(days=14)
-                    d2_end = d1_start - timedelta(days=1)
-                    d2_start = d2_end - timedelta(days=14)
-                elif hizli_secim == "Son 30 Gün":
-                    d1_end = bugun
-                    d1_start = bugun - timedelta(days=29)
-                    d2_end = d1_start - timedelta(days=1)
-                    d2_start = d2_end - timedelta(days=29)
+                    d1_end, d1_start = bugun, bugun - timedelta(days=6)
+                    d2_end, d2_start = d1_start - timedelta(days=1), d1_start - timedelta(days=7)
                 elif hizli_secim == "Dün":
                     d1_end = d1_start = bugun - timedelta(days=1)
                     d2_end = d2_start = bugun - timedelta(days=2)
-                elif hizli_secim == "Bugün":
-                    d1_end = d1_start = bugun
-                    d2_end = d2_start = bugun - timedelta(days=1)
                 else:
-                    st.info("Aşağıdan özel tarihlerinizi seçin.")
-                    
                     c1, c2 = st.columns(2)
-                    with c1: d1_start = st.date_input("1. Dönem Başlangıç", bugun - timedelta(days=7))
-                    with c2: d1_end = st.date_input("1. Dönem Bitiş", bugun)
-                    
+                    with c1: d1_start = st.date_input("1. Başlangıç", bugun - timedelta(days=7))
+                    with c2: d1_end = st.date_input("1. Bitiş", bugun)
                     c3, c4 = st.columns(2)
-                    with c3: d2_start = st.date_input("2. Dönem Başlangıç", bugun - timedelta(days=15))
-                    with c4: d2_end = st.date_input("2. Dönem Bitiş", bugun - timedelta(days=8))
-
-                st.write(f"**Güncel Dönem:** {d1_start.strftime('%d.%m.%Y')} - {d1_end.strftime('%d.%m.%Y')}")
-                st.write(f"**Önceki Dönem:** {d2_start.strftime('%d.%m.%Y')} - {d2_end.strftime('%d.%m.%Y')}")
+                    with c3: d2_start = st.date_input("2. Başlangıç", bugun - timedelta(days=15))
+                    with c4: d2_end = st.date_input("2. Bitiş", bugun - timedelta(days=8))
 
                 mask1 = (df['Tarih_Formatli'].dt.date >= d1_start) & (df['Tarih_Formatli'].dt.date <= d1_end)
                 mask2 = (df['Tarih_Formatli'].dt.date >= d2_start) & (df['Tarih_Formatli'].dt.date <= d2_end)
@@ -148,7 +119,6 @@ if sifre == "fresh123":
                 
                 kiyas_df = pd.DataFrame({'Metrik': sum1.index, 'Önceki Dönem': sum2.values, 'Güncel Dönem': sum1.values})
                 kiyas_df['Fark'] = kiyas_df['Güncel Dönem'] - kiyas_df['Önceki Dönem']
-                
                 kiyas_df['Değişim (%)'] = np.where(kiyas_df['Önceki Dönem'] == 0, 0, (kiyas_df['Fark'] / kiyas_df['Önceki Dönem']) * 100)
                 
                 def renk_ver(val):
@@ -156,13 +126,10 @@ if sifre == "fresh123":
                     elif val < 0: return 'color: #d50000; font-weight: bold'
                     return ''
 
-                try:
-                    st.dataframe(kiyas_df.style.map(renk_ver, subset=['Değişim (%)']).format({'Önceki Dönem': '{:,.2f}', 'Güncel Dönem': '{:,.2f}', 'Fark': '{:,.2f}', 'Değişim (%)': '%{:.2f}'}))
-                except AttributeError:
-                    st.dataframe(kiyas_df.style.applymap(renk_ver, subset=['Değişim (%)']).format({'Önceki Dönem': '{:,.2f}', 'Güncel Dönem': '{:,.2f}', 'Fark': '{:,.2f}', 'Değişim (%)': '%{:.2f}'}))
+                st.dataframe(kiyas_df.style.applymap(renk_ver, subset=['Değişim (%)']).format({'Önceki Dönem': '{:,.2f}', 'Güncel Dönem': '{:,.2f}', 'Fark': '{:,.2f}', 'Değişim (%)': '%{:.2f}'}))
 
         except Exception as e:
-            st.error(f"Hata kiral! Belki sekme formatları farklıdır. Detay: {e}")
+            st.error(f"Hata kiral! Detay: {e}")
     else:
         st.info("Kiral, verileri çekmek için lütfen menüden Google Sheet ID gir.")
 else:
