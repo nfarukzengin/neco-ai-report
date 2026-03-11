@@ -145,6 +145,7 @@ if sifre == "fresh123":
                 sorular = [
                     "CPA ve COS oranlarına göre reklam verimliliğini değerlendir.",
                     "En yüksek ve en düşük ciro yapılan günleri kıyasla, sence neden?",
+                    "Bu Estimate raporda güncel olarak bütçe arttırmalı mıyım? hedef: cironun %3'ü.?",
                     "Reklam harcamalarının ciroya katkısını analiz et, kârlı mıyız?",
                     "Bu verilere göre yarınki reklam bütçesini artırmalı mıyım, kısmalı mıyım?",
                     "Sadık müşteri kazanımı (CRM) için bu tabloya göre nasıl bir aksiyon almalıyım?"
