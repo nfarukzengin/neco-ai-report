@@ -18,27 +18,7 @@ if sifre == "fresh123":
     st.sidebar.markdown("---")
     st.sidebar.subheader("📁 Dosya Yöneticisi")
 
-    import requests
-    import json
-    
-    st.warning("Slack Zırhlı Testi Başlıyor...")
-    
-    # Linki artık güvenli kasadan çekiyoruz!
-    webhook_url = st.secrets["SLACK_WEBHOOK"]
-    
-    mesaj_paketi = {
-        "text": "🚨 Neco kiral, Github engelini aştık, sistem online!",
-        "username": "Fresh AI Bot",
-        "icon_emoji": ":rocket:"
-    }
-    
-    headers = {'Content-type': 'application/json'}
-    cevap = requests.post(webhook_url, data=json.dumps(mesaj_paketi), headers=headers)
-    
-    if cevap.status_code == 200:
-        st.success("✅ Boom! Cevap Kodu: 200. Slack kanalına mesaj düştü!")
-    else:
-        st.error(f"❌ Hata Kodu: {cevap.status_code} - Hata detayı: {cevap.text}")
+
     
     # --- MANUEL GİRİŞ HER ZAMAN EN ÜSTTE ---
     manuel_id = st.sidebar.text_input("🔗 Manuel Google Sheet ID (Öncelikli):")
@@ -75,6 +55,25 @@ if sifre == "fresh123":
     
     secilen_klasor = st.sidebar.selectbox("Klasör Seç:", list(klasorler.keys()))
     secilen_dosya = st.sidebar.selectbox("Dosya Seç:", list(klasorler[secilen_klasor].keys()))
+    # --- SLACK BUTONLU TEST ---
+    st.sidebar.markdown("---")
+    if st.sidebar.button("🚀 Slack Test Mesajı Gönder"):
+        import requests
+        import json
+        
+        webhook_url = st.secrets["SLACK_WEBHOOK"]
+        mesaj_paketi = {
+            "text": "🚨 Neco kiral, butonlu test başarılı, sistem online!",
+            "username": "Fresh AI Bot",
+            "icon_emoji": ":rocket:"
+        }
+        headers = {'Content-type': 'application/json'}
+        cevap = requests.post(webhook_url, data=json.dumps(mesaj_paketi), headers=headers)
+        
+        if cevap.status_code == 200:
+            st.sidebar.success("✅ Mesaj Slack'e uçtu!")
+        else:
+            st.sidebar.error(f"❌ Hata: {cevap.status_code} - {cevap.text}")
     
     # Manuel ID varsa onu kullan, yoksa klasördekini kullan
     if manuel_id.strip() != "":
