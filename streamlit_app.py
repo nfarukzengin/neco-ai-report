@@ -6,6 +6,8 @@ import numpy as np
 import urllib.request
 import re
 import altair as alt
+import requests
+import json
 
 st.set_page_config(page_title="Neco AI", layout="wide")
 st.title("🚀 AI Analiz Paneli")
@@ -17,42 +19,43 @@ sifre = st.sidebar.text_input("Giriş Şifresi:", type="password")
 if sifre == "fresh123":
     st.sidebar.markdown("---")
     st.sidebar.subheader("📁 Dosya Yöneticisi")
-    
+
     # --- MANUEL GİRİŞ HER ZAMAN EN ÜSTTE ---
     manuel_id = st.sidebar.text_input("🔗 Manuel Google Sheet ID (Öncelikli):")
     st.sidebar.markdown("*Veya aşağıdan kayıtlı bir dosya seçin:*")
     
     klasorler = {
         "Fresh Scarfs": {
-
-
-
             "Fresh Scarfs Reklam COS | Trendyol": "1JH3T2ib46IFuT5mnAkQoGQ1V4sZnwHaAUZA9ms1wKXo",
-
-
-
             "Aylık Özet": "FRESH_AYLIK_ID_BURAYA"
-
-
-
         },
-
-
-
         "Manuka": {
-
-
-
             "Manuka Estimate Mart": "11BsMe68YenKhK4UDddwBeaEJgz4zJA9ZRBAxNIAIaIY",
-
-
-
             "Manuka Reklam COS | Trendyol": "1cnxOLFg3qzggWIL7gPaTrsTa63uywmISroC8lbz2V7o"
         }
     }
     
     secilen_klasor = st.sidebar.selectbox("Klasör Seç:", list(klasorler.keys()))
     secilen_dosya = st.sidebar.selectbox("Dosya Seç:", list(klasorler[secilen_klasor].keys()))
+    
+    # --- SLACK BUTONLU TEST ---
+    st.sidebar.markdown("---")
+    if st.sidebar.button("🚀 Slack Test Mesajı Gönder"):
+        webhook_url = st.secrets["SLACK_WEBHOOK"]
+        mesaj_paketi = {
+            "text": "🚨 Necocum, butonlu test başarılı, sistem online!",
+            "username": "Fresh AI Bot",
+            "icon_emoji": ":rocket:"
+        }
+        headers = {'Content-type': 'application/json'}
+        try:
+            cevap = requests.post(webhook_url, data=json.dumps(mesaj_paketi), headers=headers)
+            if cevap.status_code == 200:
+                st.sidebar.success("✅ Mesaj Slack'e uçtu!")
+            else:
+                st.sidebar.error(f"❌ Hata: {cevap.status_code} - {cevap.text}")
+        except Exception as e:
+            st.sidebar.error(f"Slack Hatası: {e}")
     
     # Manuel ID varsa onu kullan, yoksa klasördekini kullan
     if manuel_id.strip() != "":
@@ -111,7 +114,58 @@ if sifre == "fresh123":
                     
                 mask = (df['Tarih_Formatli'].dt.date >= start_date) & (df['Tarih_Formatli'].dt.date <= end_date)
                 filtered_df = df.loc[mask].copy()
-                
+
+                # --- OTOMATİK ANORMALLİK DEDEKTÖRÜ ---
+                st.markdown("---")
+                try:
+                    son_gun = filtered_df['Tarih_Formatli'].max()
+                    gecmis_7_gun = son_gun - timedelta(days=7)
+                    
+                    son_gun_verisi = filtered_df[filtered_df['Tarih_Formatli'] == son_gun]
+                    gecmis_veriler = filtered_df[(filtered_df['Tarih_Formatli'] >= gecmis_7_gun) & (filtered_df['Tarih_Formatli'] < son_gun)]
+                    
+                    sayisal_sutunlar = son_gun_verisi.select_dtypes(include=np.number).columns
+                    anormallikler = []
+                    
+                    for col in sayisal_sutunlar:
+                        if any(x in col.lower() for x in ['cpa', 'maliyet', 'cost', 'harcama']):
+                            son_deger = son_gun_verisi[col].sum()
+                            ortalama_deger = gecmis_veriler[col].mean()
+                            
+                            if ortalama_deger > 0 and son_deger > (ortalama_deger * 1.3):
+                                artis_orani = ((son_deger - ortalama_deger) / ortalama_deger) * 100
+                                anormallikler.append(f"**{col}**: Dün ({son_deger:,.2f} ₺), son 7 gün ortalamasından ({ortalama_deger:,.2f} ₺) **%{artis_orani:.1f}** daha yüksek!")
+                    
+                    if anormallikler:
+                        st.error("🚨 **DİKKAT KİRAL! MALİYETLERDE ANORMALLİK VAR:**")
+                        slack_mesaj_metni = "🚨 *DİKKAT KİRAL! MALİYETLERDE ANORMALLİK VAR:*\n\n"
+                        
+                        for mesaj in anormallikler:
+                            st.warning(f"⚠️ {mesaj}")
+                            temiz_mesaj = mesaj.replace('**', '*') 
+                            slack_mesaj_metni += f"⚠️ {temiz_mesaj}\n"
+                        
+                        if "slack_anormallik_tarihi" not in st.session_state or st.session_state.slack_anormallik_tarihi != son_gun:
+                            try:
+                                webhook_url = st.secrets["SLACK_WEBHOOK"]
+                                mesaj_paketi = {
+                                    "text": slack_mesaj_metni,
+                                    "username": "Fresh AI Dedektör",
+                                    "icon_emoji": ":rotating_light:"
+                                }
+                                headers = {'Content-type': 'application/json'}
+                                requests.post(webhook_url, data=json.dumps(mesaj_paketi), headers=headers)
+                                st.session_state.slack_anormallik_tarihi = son_gun
+                            except Exception as e:
+                                pass
+                    else:
+                        st.success("✅ Kiral, son gün verilerinde göze çarpan bir maliyet patlaması yok. Her şey stabil.")
+                        if "slack_anormallik_tarihi" in st.session_state:
+                            del st.session_state["slack_anormallik_tarihi"]
+                except Exception as e:
+                    pass
+                # --------------------------------------
+
                 # --- GRAFİK ALANI ---
                 st.subheader("📈 Trend Grafiği")
                 grafik_df = filtered_df.copy().sort_values('Tarih_Formatli')
@@ -266,6 +320,11 @@ if sifre == "fresh123":
                     "Bu iki dönemi kıyasladığında reklam bütçesini nasıl optimize etmeliyim?"
                 ]
                 secilen_kiyas_sorular = st.multiselect("Soruları Seç (Karşılaştırma):", kiyas_sorular, key="kiyas_ai_secim")
+                
+                # Modelin Karşılaştırma sekmesinde de çalışması için buraya tanımlamayı ekledim
+                genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+                uygun_modeller = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+                model = genai.GenerativeModel(uygun_modeller[0])
                 
                 if st.button("Karşılaştırmayı Sorgula"):
                     if not secilen_kiyas_sorular: 
