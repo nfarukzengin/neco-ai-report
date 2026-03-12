@@ -155,13 +155,40 @@ if sifre == "fresh123":
                                 anormallikler.append(f"**{col}**: Dün ({son_deger:,.2f} ₺), son 7 gün ortalamasından ({ortalama_deger:,.2f} ₺) **%{artis_orani:.1f}** daha yüksek!")
                     
                     if anormallikler:
-                        st.error("🚨 **DİKKAT NECO! MALİYETLERDE ANORMALLİK VAR:**")
+                        st.error("🚨 **DİKKAT KİRAL! MALİYETLERDE ANORMALLİK VAR:**")
+                        
+                        # Slack için özel mesaj paketi hazırlıyoruz
+                        slack_mesaj_metni = "🚨 *DİKKAT NECO! MALİYETLERDE ANORMALLİK VAR:*\n\n"
+                        
                         for mesaj in anormallikler:
                             st.warning(f"⚠️ {mesaj}")
+                            # Streamlit'in ** kalın yazısını Slack'in * kalın yazısına çeviriyoruz
+                            temiz_mesaj = mesaj.replace('**', '*') 
+                            slack_mesaj_metni += f"⚠️ {temiz_mesaj}\n"
+                        
+                        # Spam engeli: Sadece o gün için 1 kere atar
+                        if "slack_anormallik_tarihi" not in st.session_state or st.session_state.slack_anormallik_tarihi != son_gun:
+                            import requests
+                            import json
+                            try:
+                                webhook_url = st.secrets["SLACK_WEBHOOK"]
+                                mesaj_paketi = {
+                                    "text": slack_mesaj_metni,
+                                    "username": "Fresh AI Dedektör",
+                                    "icon_emoji": ":rotating_light:"
+                                }
+                                headers = {'Content-type': 'application/json'}
+                                requests.post(webhook_url, data=json.dumps(mesaj_paketi), headers=headers)
+                                
+                                # Mesajın atıldığını sisteme not düş
+                                st.session_state.slack_anormallik_tarihi = son_gun
+                            except Exception as e:
+                                pass
                     else:
-                        st.success("✅ Neco, son gün verilerinde göze çarpan bir maliyet patlaması yok. Her şey stabil.")
-                except Exception as e:
-                    pass # Yeterli veri yoksa sessizce geç
+                        st.success("✅ Kiral, son gün verilerinde göze çarpan bir maliyet patlaması yok. Her şey stabil.")
+                        # Veriler stabilse hafızayı temizle, yeni bir dalgada tekrar haber versin
+                        if "slack_anormallik_tarihi" in st.session_state:
+                            del st.session_state["slack_anormallik_tarihi"]
                 # --------------------------------------
 
         
