@@ -111,6 +111,42 @@ if sifre == "fresh123":
                     
                 mask = (df['Tarih_Formatli'].dt.date >= start_date) & (df['Tarih_Formatli'].dt.date <= end_date)
                 filtered_df = df.loc[mask].copy()
+
+                # --- OTOMATİK SLACK ALARM SİSTEMİ ---
+                slack_webhook_url = "https://hooks.slack.com/services/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" 
+                
+                if slack_webhook_url and slack_webhook_url != "https://hooks.slack.com/services/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":
+                    sifir_var_mi = False
+                    hatali_tarihler = []
+                    
+                    for idx, row in filtered_df.iterrows():
+                        for col in filtered_df.columns:
+                            # Tarih ve metin sütunlarında 0 aramayalım
+                            if col not in ['Tarih', 'Tarih_Formatli', 'Ürün Adı', 'Kampanya']:
+                                # Veri tipi ne olursa olsun metne çevirip 0 mı diye bakıyoruz
+                                if str(row[col]).strip() in ['0', '0.0', '0,0', 'None']:
+                                    sifir_var_mi = True
+                                    tarih_str = row['Tarih_Formatli'].strftime('%d.%m.%Y')
+                                    if tarih_str not in hatali_tarihler:
+                                        hatali_tarihler.append(tarih_str)
+                    
+                    if sifir_var_mi:
+                        st.warning(f"⚠️ Dikkat! Şu tarihlerde '0' verisi bulundu: {', '.join(hatali_tarihler)}")
+                        # Sadece 1 kere atması için hafıza kontrolü
+                        if "slack_uyarisi_gonderildi" not in st.session_state:
+                            import requests
+                            mesaj = f"🚨 *Kritik Uyarı Kiral!* \nŞu tarihlerde bir veride '0' tespit edildi: {', '.join(hatali_tarihler)}\nAcil panele girip kontrol et!"
+                            try:
+                                requests.post(slack_webhook_url, json={"text": mesaj})
+                                st.sidebar.error("🚨 Slack'e alarm uçuruldu!")
+                                st.session_state.slack_uyarisi_gonderildi = True
+                            except Exception as e:
+                                st.error(f"Slack hatası: {e}")
+                    else:
+                        # Hata düzeltildiyse hafızayı temizle
+                        if "slack_uyarisi_gonderildi" in st.session_state:
+                            del st.session_state["slack_uyarisi_gonderildi"]
+                # ------------------------------------------------
                 
                 # --- GRAFİK ALANI ---
                 st.subheader("📈 Trend Grafiği")
@@ -275,6 +311,10 @@ if sifre == "fresh123":
                             prompt = f"Sen bir e-ticaret ve CRM uzmanısın. Şu iki dönemin karşılaştırma verilerine bakarak seçtiğim sorulara kısa, net ve aksiyon odaklı cevap ver:\n\nSorular:\n{secilen_kiyas_sorular}\n\nKarşılaştırma Verisi:\n{kiyas_df.to_string()}"
                             st.success(model.generate_content(prompt).text)
 
+    
+        except NameError:
+            st.sidebar.info("Lütfen önce yukarıdan bir veri seç ki tarama yapabileyim.")
+        
         except Exception as e:
             st.error(f"Buralarda bi' yanlışlık var! Belki sekme formatları farklıdır. Detay: {e}")
     else:
