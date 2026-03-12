@@ -19,9 +19,26 @@ if sifre == "fresh123":
     st.sidebar.subheader("📁 Dosya Yöneticisi")
 
     import requests
-    st.warning("Slack Testi Başlıyor...")
-    cevap = requests.post("https://hooks.slack.com/services/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", json={"text": "🚨 Neco kiral, webhook sapasağlam çalışıyor!"})
-    st.success(f"Slack Cevap Kodu: {cevap.status_code}")
+    import json
+    
+    st.warning("Slack Zırhlı Testi Başlıyor...")
+    
+    # Linki artık güvenli kasadan çekiyoruz!
+    webhook_url = st.secrets["SLACK_WEBHOOK"]
+    
+    mesaj_paketi = {
+        "text": "🚨 Neco kiral, Github engelini aştık, sistem online!",
+        "username": "Fresh AI Bot",
+        "icon_emoji": ":rocket:"
+    }
+    
+    headers = {'Content-type': 'application/json'}
+    cevap = requests.post(webhook_url, data=json.dumps(mesaj_paketi), headers=headers)
+    
+    if cevap.status_code == 200:
+        st.success("✅ Boom! Cevap Kodu: 200. Slack kanalına mesaj düştü!")
+    else:
+        st.error(f"❌ Hata Kodu: {cevap.status_code} - Hata detayı: {cevap.text}")
     
     # --- MANUEL GİRİŞ HER ZAMAN EN ÜSTTE ---
     manuel_id = st.sidebar.text_input("🔗 Manuel Google Sheet ID (Öncelikli):")
