@@ -6,6 +6,8 @@ import numpy as np
 import urllib.request
 import re
 import altair as alt
+import requests
+import json
 
 st.set_page_config(page_title="Neco AI", layout="wide")
 st.title("🚀 AI Analiz Paneli")
@@ -18,76 +20,49 @@ if sifre == "fresh123":
     st.sidebar.markdown("---")
     st.sidebar.subheader("📁 Dosya Yöneticisi")
 
+    # --- SLACK TEST BUTONU ---
+    if st.sidebar.button("🚀 Slack Test Mesajı Gönder"):
+        try:
+            webhook_url = st.secrets["SLACK_WEBHOOK"]
+            mesaj_paketi = {
+                "text": "🚨 Necocum, butonlu test başarılı, sistem online!",
+                "username": "Fresh AI Bot",
+                "icon_emoji": ":rocket:"
+            }
+            headers = {'Content-type': 'application/json'}
+            cevap = requests.post(webhook_url, data=json.dumps(mesaj_paketi), headers=headers)
+            if cevap.status_code == 200:
+                st.sidebar.success("✅ Mesaj Slack'e uçtu!")
+            else:
+                st.sidebar.error(f"❌ Hata: {cevap.status_code}")
+        except Exception as e:
+            st.sidebar.error(f"Bağlantı hatası: {e}")
 
-    
-    # --- MANUEL GİRİŞ HER ZAMAN EN ÜSTTE ---
+    # --- DOSYA YÖNETİMİ ---
     manuel_id = st.sidebar.text_input("🔗 Manuel Google Sheet ID (Öncelikli):")
-    st.sidebar.markdown("*Veya aşağıdan kayıtlı bir dosya seçin:*")
     
     klasorler = {
         "Fresh Scarfs": {
-
-
-
             "Fresh Scarfs Reklam COS | Trendyol": "1JH3T2ib46IFuT5mnAkQoGQ1V4sZnwHaAUZA9ms1wKXo",
-
-
-
             "Aylık Özet": "FRESH_AYLIK_ID_BURAYA"
-
-
-
         },
-
-
-
         "Manuka": {
-
-
-
             "Manuka Estimate Mart": "11BsMe68YenKhK4UDddwBeaEJgz4zJA9ZRBAxNIAIaIY",
-
-
-
             "Manuka Reklam COS | Trendyol": "1cnxOLFg3qzggWIL7gPaTrsTa63uywmISroC8lbz2V7o"
         }
     }
     
     secilen_klasor = st.sidebar.selectbox("Klasör Seç:", list(klasorler.keys()))
     secilen_dosya = st.sidebar.selectbox("Dosya Seç:", list(klasorler[secilen_klasor].keys()))
-    # --- SLACK BUTONLU TEST ---
-    st.sidebar.markdown("---")
-    if st.sidebar.button("🚀 Slack Test Mesajı Gönder"):
-        import requests
-        import json
-        
-        webhook_url = st.secrets["SLACK_WEBHOOK"]
-        mesaj_paketi = {
-            "text": "🚨 Necocum, butonlu test başarılı, sistem online!",
-            "username": "Fresh AI Bot",
-            "icon_emoji": ":rocket:"
-        }
-        headers = {'Content-type': 'application/json'}
-        cevap = requests.post(webhook_url, data=json.dumps(mesaj_paketi), headers=headers)
-        
-        if cevap.status_code == 200:
-            st.sidebar.success("✅ Mesaj Slack'e uçtu!")
-        else:
-            st.sidebar.error(f"❌ Hata: {cevap.status_code} - {cevap.text}")
     
-    # Manuel ID varsa onu kullan, yoksa klasördekini kullan
-    if manuel_id.strip() != "":
-        sheet_id_input = manuel_id.strip()
-    else:
-        sheet_id_input = klasorler[secilen_klasor][secilen_dosya]
-        
+    sheet_id_input = manuel_id.strip() if manuel_id.strip() != "" else klasorler[secilen_klasor][secilen_dosya]
     gecersiz_idler = ["", "FRESH_ID_BURAYA", "FRESH_AYLIK_ID_BURAYA", "MANUKA_ID_BURAYA"]
 
     if sheet_id_input and sheet_id_input not in gecersiz_idler:
         url = f"https://docs.google.com/spreadsheets/d/{sheet_id_input}/export?format=xlsx"
         
         try:
-            # --- DOSYA ADINI ÇEKME ---
+            # Dosya adını çekme
             try:
                 html = urllib.request.urlopen(f"https://docs.google.com/spreadsheets/d/{sheet_id_input}/edit").read().decode('utf-8')
                 dosya_adi = re.search(r'<title>(.*?)</title>', html).group(1).replace(" - Google Tablolar", "").replace(" - Google Sheets", "")
@@ -101,44 +76,38 @@ if sifre == "fresh123":
             secilen_sayfa = st.sidebar.selectbox("📂 Sayfa (Sekme) Seç:", sayfa_isimleri)
             
             df = tum_sayfalar[secilen_sayfa].copy()
-            
             df['Tarih_Formatli'] = pd.to_datetime(df['Tarih'], format='%d.%m.%Y', errors='coerce')
             df = df.dropna(subset=['Tarih_Formatli'])
             
+            # Veri Temizleme
             for col in df.columns:
-                if col not in ['Tarih', 'Tarih_Formatli', 'Ürün Reklam', 'İnf Reklam', 'Cpas Reklam', 'Ürün Adı', 'Kampanya']:
+                if col not in ['Tarih', 'Tarih_Formatli', 'Ürün Adı', 'Kampanya']:
                     def temizle(x):
                         if isinstance(x, str):
                             x = x.replace('₺', '').replace('%', '').replace('None', '0').strip()
-                            if '.' in x and ',' in x:
-                                x = x.replace('.', '').replace(',', '.')
-                            elif ',' in x:
-                                x = x.replace(',', '.')
+                            if '.' in x and ',' in x: x = x.replace('.', '').replace(',', '.')
+                            elif ',' in x: x = x.replace(',', '.')
                         return x 
-                    
                     df[col] = df[col].apply(temizle)
                     df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
 
             st.sidebar.markdown("---")
             sekme = st.sidebar.radio("📌 Menü", ["Ana Analiz", "Karşılaştırma"])
 
-if sekme == "Ana Analiz":
+            if sekme == "Ana Analiz":
                 st.subheader(f"📅 Tarih Aralığı Seç ({secilen_sayfa})")
-                col1, col2 = st.columns(2)
-                with col1:
-                    start_date = st.date_input("Başlangıç", df['Tarih_Formatli'].min().date())
-                with col2:
-                    end_date = st.date_input("Bitiş", df['Tarih_Formatli'].max().date())
-                    
+                c1, c2 = st.columns(2)
+                with c1: start_date = st.date_input("Başlangıç", df['Tarih_Formatli'].min().date())
+                with c2: end_date = st.date_input("Bitiş", df['Tarih_Formatli'].max().date())
+                
                 mask = (df['Tarih_Formatli'].dt.date >= start_date) & (df['Tarih_Formatli'].dt.date <= end_date)
                 filtered_df = df.loc[mask].copy()
 
-                # --- OTOMATİK ANORMALLİK DEDEKTÖRÜ ---
+                # --- ANORMALLİK DEDEKTÖRÜ ---
                 st.markdown("---")
                 try:
                     son_gun = filtered_df['Tarih_Formatli'].max()
                     gecmis_7_gun = son_gun - timedelta(days=7)
-                    
                     son_gun_verisi = filtered_df[filtered_df['Tarih_Formatli'] == son_gun]
                     gecmis_veriler = filtered_df[(filtered_df['Tarih_Formatli'] >= gecmis_7_gun) & (filtered_df['Tarih_Formatli'] < son_gun)]
                     
@@ -149,217 +118,67 @@ if sekme == "Ana Analiz":
                         if any(x in col.lower() for x in ['cpa', 'maliyet', 'cost', 'harcama']):
                             son_deger = son_gun_verisi[col].sum()
                             ortalama_deger = gecmis_veriler[col].mean()
-                            
                             if ortalama_deger > 0 and son_deger > (ortalama_deger * 1.3):
                                 artis_orani = ((son_deger - ortalama_deger) / ortalama_deger) * 100
-                                anormallikler.append(f"**{col}**: Dün ({son_deger:,.2f} ₺), son 7 gün ortalamasından ({ortalama_deger:,.2f} ₺) **%{artis_orani:.1f}** daha yüksek!")
-                    
+                                anormallikler.append(f"*{col}*: Dün ({son_deger:,.2f} ₺), Ortalamadan ({ortalama_deger:,.2f} ₺) *%{artis_orani:.1f}* yüksek!")
+
                     if anormallikler:
                         st.error("🚨 **DİKKAT KİRAL! MALİYETLERDE ANORMALLİK VAR:**")
-                        slack_mesaj_metni = "🚨 *DİKKAT KİRAL! MALİYETLERDE ANORMALLİK VAR:*\n\n"
+                        slack_metni = "🚨 *DİKKAT KİRAL! MALİYETLERDE ANORMALLİK VAR:*\n\n"
+                        for m in anormallikler:
+                            st.warning(f"⚠️ {m.replace('*', '**')}")
+                            slack_metni += f"⚠️ {m}\n"
                         
-                        for mesaj in anormallikler:
-                            st.warning(f"⚠️ {mesaj}")
-                            temiz_mesaj = mesaj.replace('**', '*') 
-                            slack_mesaj_metni += f"⚠️ {temiz_mesaj}\n"
-                        
-                        if "slack_anormallik_tarihi" not in st.session_state or st.session_state.slack_anormallik_tarihi != son_gun:
-                            import requests
-                            import json
-                            try:
-                                webhook_url = st.secrets["SLACK_WEBHOOK"]
-                                mesaj_paketi = {
-                                    "text": slack_mesaj_metni,
-                                    "username": "Fresh AI Dedektör",
-                                    "icon_emoji": ":rotating_light:"
-                                }
-                                headers = {'Content-type': 'application/json'}
-                                requests.post(webhook_url, data=json.dumps(mesaj_paketi), headers=headers)
-                                st.session_state.slack_anormallik_tarihi = son_gun
-                            except Exception as e:
-                                pass
+                        if "slack_notif_date" not in st.session_state or st.session_state.slack_notif_date != son_gun:
+                            webhook_url = st.secrets["SLACK_WEBHOOK"]
+                            requests.post(webhook_url, data=json.dumps({"text": slack_metni, "username": "Fresh AI", "icon_emoji": ":rotating_light:"}), headers={'Content-type': 'application/json'})
+                            st.session_state.slack_notif_date = son_gun
                     else:
-                        st.success("✅ Kiral, son gün verilerinde göze çarpan bir maliyet patlaması yok. Her şey stabil.")
-                        if "slack_anormallik_tarihi" in st.session_state:
-                            del st.session_state["slack_anormallik_tarihi"]
-                except Exception as e:
-                    pass
-                # --------------------------------------
-                
-                # --- GRAFİK ALANI ---
-           
-                
-                # --- GRAFİK ALANI ---
+                        st.success("✅ Veriler stabil, maliyet patlaması yok.")
+                except: pass
+
+                # --- GRAFİK ---
                 st.subheader("📈 Trend Grafiği")
                 grafik_df = filtered_df.copy().sort_values('Tarih_Formatli')
-                sayisal_sutunlar = grafik_df.select_dtypes(include=np.number).columns.tolist()
-                varsayilan_secim = [col for col in sayisal_sutunlar if any(x in col.lower() for x in ['revenue', 'cost', 'ciro', 'harcama'])]
-                if not varsayilan_secim and sayisal_sutunlar:
-                    varsayilan_secim = [sayisal_sutunlar[0]]
+                sayisal = grafik_df.select_dtypes(include=np.number).columns.tolist()
+                secilen_metrik = st.multiselect("Metrikler:", sayisal, default=[sayisal[0]] if sayisal else [])
+                if secilen_metrik:
+                    aylar = {1:'Ocak',2:'Şubat',3:'Mart',4:'Nisan',5:'Mayıs',6:'Haziran',7:'Temmuz',8:'Ağustos',9:'Eylül',10:'Ekim',11:'Kasım',12:'Aralık'}
+                    grafik_df['Eksen'] = grafik_df['Tarih_Formatli'].dt.day.astype(str) + ' ' + grafik_df['Tarih_Formatli'].dt.month.map(aylar)
+                    erimis = grafik_df.melt(id_vars=['Tarih_Formatli', 'Eksen'], value_vars=secilen_metrik)
+                    chart = alt.Chart(erimis).mark_line(point=True).encode(x=alt.X('Eksen:N', sort=alt.EncodingSortField(field='Tarih_Formatli')), y='value:Q', color='variable:N').interactive()
+                    st.altair_chart(chart, use_container_width=True)
 
-                secilen_metrikler = st.multiselect("Grafikte Gösterilecek Metrikleri Seç:", sayisal_sutunlar, default=varsayilan_secim, key="grafik_metrik")
-                
-                if secilen_metrikler:
-                    aylar_tr = {1: 'Ocak', 2: 'Şubat', 3: 'Mart', 4: 'Nisan', 5: 'Mayıs', 6: 'Haziran', 
-                                7: 'Temmuz', 8: 'Ağustos', 9: 'Eylül', 10: 'Ekim', 11: 'Kasım', 12: 'Aralık'}
-                    grafik_df['Grafik_Tarihi'] = grafik_df['Tarih_Formatli'].dt.day.astype(str) + ' ' + grafik_df['Tarih_Formatli'].dt.month.map(aylar_tr)
-                    
-                    erimis_df = grafik_df.melt(id_vars=['Tarih_Formatli', 'Grafik_Tarihi'], value_vars=secilen_metrikler, var_name='Metrik', value_name='Değer')
-                    
-                    cizgi_grafik = alt.Chart(erimis_df).mark_line(point=True).encode(
-                        x=alt.X('Grafik_Tarihi:N', sort=alt.EncodingSortField(field='Tarih_Formatli', order='ascending'), title='Tarih'),
-                        y=alt.Y('Değer:Q', title='Tutar'),
-                        color='Metrik:N',
-                        tooltip=['Grafik_Tarihi', 'Metrik', 'Değer']
-                    ).interactive()
-                    
-                    st.altair_chart(cizgi_grafik, use_container_width=True)
+                # --- TABLO VE AI ---
                 st.markdown("---")
+                display_df = filtered_df.copy()
+                display_df['Tarih'] = display_df['Tarih_Formatli'].dt.strftime('%d.%m.%Y')
+                st.dataframe(display_df.drop(columns=['Tarih_Formatli']))
                 
-                filtered_df['Tarih'] = filtered_df['Tarih_Formatli'].dt.strftime('%d.%m.%Y')
-                filtered_df = filtered_df.drop(columns=['Tarih_Formatli'])
-                
-                toplam_satiri = filtered_df.select_dtypes(include='number').sum()
-                toplam_satiri_df = pd.DataFrame([toplam_satiri])
-                toplam_satiri_df['Tarih'] = 'TOPLAM'
-                filtered_df = pd.concat([filtered_df, toplam_satiri_df], ignore_index=True)
-                
-                def formatla(val, col_name):
-                    if isinstance(val, (int, float)):
-                        c_lower = col_name.lower()
-                        if any(x in c_lower for x in ['cos', 'katkı', 'gelir', 'cr']) and 'cost' not in c_lower:
-                            if val < 10 and val > -10: val = val * 100 
-                            fmt_val = f"{val:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-                            return f"%{fmt_val}"
-                        elif any(x in c_lower for x in ['revenue', 'cost', 'cpc', 'cpa', 'harcama', 'aov', 'cps', 'rps']):
-                            fmt_val = f"{val:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-                            return f"₺{fmt_val}"
-                        else:
-                            fmt_val = f"{val:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-                            if fmt_val.endswith(",00"): fmt_val = fmt_val[:-3]
-                            return fmt_val
-                    return val
-
-                for col in filtered_df.columns:
-                    if col != 'Tarih': filtered_df[col] = filtered_df[col].apply(lambda x: formatla(x, col))
-                
-                def satir_boya(row):
-                    if row['Tarih'] == 'TOPLAM': return ['background-color: #004d40; color: white; font-weight: bold'] * len(row)
-                    return [''] * len(row)
-
-                st.subheader("📊 Seçili Tarihler ve Kesin Toplam")
-                st.dataframe(filtered_df.style.apply(satir_boya, axis=1)) 
-                
-                st.subheader("🤖 AI'a Ne Sormak İstersin?")
-                sorular = [
-                    "CPA ve COS oranlarına göre reklam verimliliğini değerlendir.",
-                    "En yüksek ve en düşük ciro yapılan günleri kıyasla, sence neden?",
-                    "Reklam harcamalarının ciroya katkısını analiz et, kârlı mıyız?",
-                    "Bu verilere göre yarınki reklam bütçesini artırmalı mıyım, kısmalı mıyım?",
-                    "Sadık müşteri kazanımı (CRM) için bu tabloya göre nasıl bir aksiyon almalıyım?"
-                ]
-                secilen_sorular = st.multiselect("Soruları Seç:", sorular, key="ana_ai_secim")
-                
+                st.subheader("🤖 AI Analizi")
                 genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-                uygun_modeller = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
-                model = genai.GenerativeModel(uygun_modeller[0])
-                
-                if st.button("Sorgula"):
-                    if not secilen_sorular: st.warning("Soru seç!")
-                    else:
-                        with st.spinner('Hazırlanıyor...'):
-                            prompt = f"Şu verilere bakarak kısa cevap ver:\nSorular: {secilen_sorular}\nVeri:\n{filtered_df.to_string()}"
-                            st.success(model.generate_content(prompt).text)
+                model = genai.GenerativeModel('gemini-1.5-flash')
+                soru = st.text_input("Veriler hakkında ne sormak istersin?")
+                if st.button("Sor"):
+                    with st.spinner('Analiz ediliyor...'):
+                        res = model.generate_content(f"Verileri analiz et ve kısa cevap ver: {soru}\nVeri:\n{display_df.to_string()}")
+                        st.info(res.text)
 
             elif sekme == "Karşılaştırma":
                 st.subheader(f"⚖️ Dönem Karşılaştırması ({secilen_sayfa})")
-                
                 bugun = date.today()
+                c1, c2 = st.columns(2)
+                d1_start = c1.date_input("1. Dönem Başlangıç", bugun - timedelta(days=7))
+                d1_end = c2.date_input("1. Dönem Bitiş", bugun)
                 
-                hizli_secim = st.selectbox("Hızlı Seçim (Otomatik Önceki Dönemle Kıyaslar)", 
-                                           ["Özel Tarih Seç", "Bugün", "Dün", "Son 7 Gün", "Son 15 Gün", "Son 30 Gün"])
-                
-                if hizli_secim == "Son 7 Gün":
-                    d1_end = bugun
-                    d1_start = bugun - timedelta(days=6)
-                    d2_end = d1_start - timedelta(days=1)
-                    d2_start = d2_end - timedelta(days=6)
-                elif hizli_secim == "Son 15 Gün":
-                    d1_end = bugun
-                    d1_start = bugun - timedelta(days=14)
-                    d2_end = d1_start - timedelta(days=1)
-                    d2_start = d2_end - timedelta(days=14)
-                elif hizli_secim == "Son 30 Gün":
-                    d1_end = bugun
-                    d1_start = bugun - timedelta(days=29)
-                    d2_end = d1_start - timedelta(days=1)
-                    d2_start = d2_end - timedelta(days=29)
-                elif hizli_secim == "Dün":
-                    d1_end = d1_start = bugun - timedelta(days=1)
-                    d2_end = d2_start = bugun - timedelta(days=2)
-                elif hizli_secim == "Bugün":
-                    d1_end = d1_start = bugun
-                    d2_end = d2_start = bugun - timedelta(days=1)
-                else:
-                    st.info("Aşağıdan özel tarihlerinizi seçin.")
-                    
-                    c1, c2 = st.columns(2)
-                    with c1: d1_start = st.date_input("1. Dönem Başlangıç", bugun - timedelta(days=7))
-                    with c2: d1_end = st.date_input("1. Dönem Bitiş", bugun)
-                    
-                    c3, c4 = st.columns(2)
-                    with c3: d2_start = st.date_input("2. Dönem Başlangıç", bugun - timedelta(days=15))
-                    with c4: d2_end = st.date_input("2. Dönem Bitiş", bugun - timedelta(days=8))
-
-                st.write(f"**Güncel Dönem:** {d1_start.strftime('%d.%m.%Y')} - {d1_end.strftime('%d.%m.%Y')}")
-                st.write(f"**Önceki Dönem:** {d2_start.strftime('%d.%m.%Y')} - {d2_end.strftime('%d.%m.%Y')}")
-
                 mask1 = (df['Tarih_Formatli'].dt.date >= d1_start) & (df['Tarih_Formatli'].dt.date <= d1_end)
-                mask2 = (df['Tarih_Formatli'].dt.date >= d2_start) & (df['Tarih_Formatli'].dt.date <= d2_end)
-                
                 sum1 = df.loc[mask1].select_dtypes(include='number').sum()
-                sum2 = df.loc[mask2].select_dtypes(include='number').sum()
-                
-                kiyas_df = pd.DataFrame({'Metrik': sum1.index, 'Önceki Dönem': sum2.values, 'Güncel Dönem': sum1.values})
-                kiyas_df['Fark'] = kiyas_df['Güncel Dönem'] - kiyas_df['Önceki Dönem']
-                
-                kiyas_df['Değişim (%)'] = np.where(kiyas_df['Önceki Dönem'] == 0, 0, (kiyas_df['Fark'] / kiyas_df['Önceki Dönem']) * 100)
-                
-                def renk_ver(val):
-                    if val > 0: return 'color: #00c853; font-weight: bold'
-                    elif val < 0: return 'color: #d50000; font-weight: bold'
-                    return ''
+                st.write("**Seçili Dönem Toplamları:**")
+                st.table(sum1)
 
-                try:
-                    st.dataframe(kiyas_df.style.map(renk_ver, subset=['Değişim (%)']).format({'Önceki Dönem': '{:,.2f}', 'Güncel Dönem': '{:,.2f}', 'Fark': '{:,.2f}', 'Değişim (%)': '%{:.2f}'}))
-                except AttributeError:
-                    st.dataframe(kiyas_df.style.applymap(renk_ver, subset=['Değişim (%)']).format({'Önceki Dönem': '{:,.2f}', 'Güncel Dönem': '{:,.2f}', 'Fark': '{:,.2f}', 'Değişim (%)': '%{:.2f}'}))
-
-                st.subheader("🤖 Karşılaştırma Analizi için AI'a Sor")
-                kiyas_sorular = [
-                    "Geçen döneme göre cirodaki değişimi ve karlılığı (COS/ROAS) değerlendir.",
-                    "CPA ve reklam harcamalarındaki artış/azalış ciroya nasıl yansımış? Yorumla.",
-                    "En çok artış ve düşüş gösteren metrikleri bulup, önümüzdeki dönem için 2 stratejik öneri ver.",
-                    "Bu iki dönemi kıyasladığında reklam bütçesini nasıl optimize etmeliyim?"
-                ]
-                secilen_kiyas_sorular = st.multiselect("Soruları Seç (Karşılaştırma):", kiyas_sorular, key="kiyas_ai_secim")
-                
-                if st.button("Karşılaştırmayı Sorgula"):
-                    if not secilen_kiyas_sorular: 
-                        st.warning("Soru seç!")
-                    else:
-                        with st.spinner('Karşılaştırma raporu hazırlanıyor canım, biraz bekleteceğim...'):
-                            prompt = f"Sen bir e-ticaret ve CRM uzmanısın. Şu iki dönemin karşılaştırma verilerine bakarak seçtiğim sorulara kısa, net ve aksiyon odaklı cevap ver:\n\nSorular:\n{secilen_kiyas_sorular}\n\nKarşılaştırma Verisi:\n{kiyas_df.to_string()}"
-                            st.success(model.generate_content(prompt).text)
-
-    
-        except NameError:
-            st.sidebar.info("Lütfen önce yukarıdan bir veri seç ki tarama yapabileyim.")
-        
         except Exception as e:
-            st.error(f"Buralarda bi' yanlışlık var! Belki sekme formatları farklıdır. Detay: {e}")
+            st.error(f"Sistemsel Hata: {e}")
     else:
-        st.info("Neco, başlamak için lütfen sol menüden bir dosya seç veya manuel ID gir.")
+        st.info("Lütfen sol menüden bir dosya seçin.")
 else:
-    if sifre:
-        st.warning("Şifre yanlış Necocum, düzgün girer misin?")
+    if sifre: st.warning("Şifre yanlış Necocum!")
