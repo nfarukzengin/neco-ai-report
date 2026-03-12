@@ -63,7 +63,7 @@ if sifre == "fresh123":
         
         webhook_url = st.secrets["SLACK_WEBHOOK"]
         mesaj_paketi = {
-            "text": "🚨 Neco kiral, butonlu test başarılı, sistem online!",
+            "text": "🚨 Necocum, butonlu test başarılı, sistem online!",
             "username": "Fresh AI Bot",
             "icon_emoji": ":rocket:"
         }
