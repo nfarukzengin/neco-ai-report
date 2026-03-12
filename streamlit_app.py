@@ -122,7 +122,7 @@ if sifre == "fresh123":
             st.sidebar.markdown("---")
             sekme = st.sidebar.radio("📌 Menü", ["Ana Analiz", "Karşılaştırma"])
 
-            if sekme == "Ana Analiz":
+if sekme == "Ana Analiz":
                 st.subheader(f"📅 Tarih Aralığı Seç ({secilen_sayfa})")
                 col1, col2 = st.columns(2)
                 with col1:
@@ -134,27 +134,6 @@ if sifre == "fresh123":
                 filtered_df = df.loc[mask].copy()
 
                 # --- OTOMATİK ANORMALLİK DEDEKTÖRÜ ---
-                st.markdown("---")
-                try:
-                    son_gun = filtered_df['Tarih_Formatli'].max()
-                    gecmis_7_gun = son_gun - timedelta(days=7)
-                    
-                    son_gun_verisi = filtered_df[filtered_df['Tarih_Formatli'] == son_gun]
-                    gecmis_veriler = filtered_df[(filtered_df['Tarih_Formatli'] >= gecmis_7_gun) & (filtered_df['Tarih_Formatli'] < son_gun)]
-                    
-                    sayisal_sutunlar = son_gun_verisi.select_dtypes(include=np.number).columns
-                    anormallikler = []
-                    
-                    for col in sayisal_sutunlar:
-                        if any(x in col.lower() for x in ['cpa', 'maliyet', 'cost', 'harcama']):
-                            son_deger = son_gun_verisi[col].sum()
-                            ortalama_deger = gecmis_veriler[col].mean()
-                            
-                            if ortalama_deger > 0 and son_deger > (ortalama_deger * 1.3): # %30 tolerans sınırı
-                                artis_orani = ((son_deger - ortalama_deger) / ortalama_deger) * 100
-                                anormallikler.append(f"**{col}**: Dün ({son_deger:,.2f} ₺), son 7 gün ortalamasından ({ortalama_deger:,.2f} ₺) **%{artis_orani:.1f}** daha yüksek!")
-                    
-                   # --- OTOMATİK ANORMALLİK DEDEKTÖRÜ ---
                 st.markdown("---")
                 try:
                     son_gun = filtered_df['Tarih_Formatli'].max()
@@ -206,8 +185,9 @@ if sifre == "fresh123":
                 except Exception as e:
                     pass
                 # --------------------------------------
-
-        
+                
+                # --- GRAFİK ALANI ---
+           
                 
                 # --- GRAFİK ALANI ---
                 st.subheader("📈 Trend Grafiği")
