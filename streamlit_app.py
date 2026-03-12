@@ -123,8 +123,8 @@ if sifre == "fresh123":
                                 anormallikler.append(f"*{col}*: Dün ({son_deger:,.2f} ₺), Ortalamadan ({ortalama_deger:,.2f} ₺) *%{artis_orani:.1f}* yüksek!")
 
                     if anormallikler:
-                        st.error("🚨 **DİKKAT KİRAL! MALİYETLERDE ANORMALLİK VAR:**")
-                        slack_metni = "🚨 *DİKKAT KİRAL! MALİYETLERDE ANORMALLİK VAR:*\n\n"
+                        st.error("🚨 **DİKKAT NECO! MALİYETLERDE ANORMALLİK VAR:**")
+                        slack_metni = "🚨 *DİKKAT NECO! MALİYETLERDE ANORMALLİK VAR:*\n\n"
                         for m in anormallikler:
                             st.warning(f"⚠️ {m.replace('*', '**')}")
                             slack_metni += f"⚠️ {m}\n"
