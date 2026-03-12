@@ -154,19 +154,36 @@ if sifre == "fresh123":
                                 artis_orani = ((son_deger - ortalama_deger) / ortalama_deger) * 100
                                 anormallikler.append(f"**{col}**: Dün ({son_deger:,.2f} ₺), son 7 gün ortalamasından ({ortalama_deger:,.2f} ₺) **%{artis_orani:.1f}** daha yüksek!")
                     
+                   # --- OTOMATİK ANORMALLİK DEDEKTÖRÜ ---
+                st.markdown("---")
+                try:
+                    son_gun = filtered_df['Tarih_Formatli'].max()
+                    gecmis_7_gun = son_gun - timedelta(days=7)
+                    
+                    son_gun_verisi = filtered_df[filtered_df['Tarih_Formatli'] == son_gun]
+                    gecmis_veriler = filtered_df[(filtered_df['Tarih_Formatli'] >= gecmis_7_gun) & (filtered_df['Tarih_Formatli'] < son_gun)]
+                    
+                    sayisal_sutunlar = son_gun_verisi.select_dtypes(include=np.number).columns
+                    anormallikler = []
+                    
+                    for col in sayisal_sutunlar:
+                        if any(x in col.lower() for x in ['cpa', 'maliyet', 'cost', 'harcama']):
+                            son_deger = son_gun_verisi[col].sum()
+                            ortalama_deger = gecmis_veriler[col].mean()
+                            
+                            if ortalama_deger > 0 and son_deger > (ortalama_deger * 1.3):
+                                artis_orani = ((son_deger - ortalama_deger) / ortalama_deger) * 100
+                                anormallikler.append(f"**{col}**: Dün ({son_deger:,.2f} ₺), son 7 gün ortalamasından ({ortalama_deger:,.2f} ₺) **%{artis_orani:.1f}** daha yüksek!")
+                    
                     if anormallikler:
                         st.error("🚨 **DİKKAT KİRAL! MALİYETLERDE ANORMALLİK VAR:**")
-                        
-                        # Slack için özel mesaj paketi hazırlıyoruz
-                        slack_mesaj_metni = "🚨 *DİKKAT NECO! MALİYETLERDE ANORMALLİK VAR:*\n\n"
+                        slack_mesaj_metni = "🚨 *DİKKAT KİRAL! MALİYETLERDE ANORMALLİK VAR:*\n\n"
                         
                         for mesaj in anormallikler:
                             st.warning(f"⚠️ {mesaj}")
-                            # Streamlit'in ** kalın yazısını Slack'in * kalın yazısına çeviriyoruz
                             temiz_mesaj = mesaj.replace('**', '*') 
                             slack_mesaj_metni += f"⚠️ {temiz_mesaj}\n"
                         
-                        # Spam engeli: Sadece o gün için 1 kere atar
                         if "slack_anormallik_tarihi" not in st.session_state or st.session_state.slack_anormallik_tarihi != son_gun:
                             import requests
                             import json
@@ -179,16 +196,15 @@ if sifre == "fresh123":
                                 }
                                 headers = {'Content-type': 'application/json'}
                                 requests.post(webhook_url, data=json.dumps(mesaj_paketi), headers=headers)
-                                
-                                # Mesajın atıldığını sisteme not düş
                                 st.session_state.slack_anormallik_tarihi = son_gun
                             except Exception as e:
                                 pass
                     else:
                         st.success("✅ Kiral, son gün verilerinde göze çarpan bir maliyet patlaması yok. Her şey stabil.")
-                        # Veriler stabilse hafızayı temizle, yeni bir dalgada tekrar haber versin
                         if "slack_anormallik_tarihi" in st.session_state:
                             del st.session_state["slack_anormallik_tarihi"]
+                except Exception as e:
+                    pass
                 # --------------------------------------
 
         
